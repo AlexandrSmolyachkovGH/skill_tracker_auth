@@ -1,0 +1,56 @@
+default_language_version:
+  python: python3.10
+
+repos:
+  - repo: 'https://github.com/pre-commit/pre-commit-hooks'
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace  # check and fix extra spaces
+        exclude: ^(settings\.py|.idea/|.venv/|env/|\.git/|__pycache__/|\.env$|build/|dist/|\.md$|migrations/)
+
+      - id: end-of-file-fixer  # check and fix the blank line at the bottom of the file
+        exclude: ^(settings\.py|.idea/|.venv/|env/|\.git/|__pycache__/|\.env$|build/|dist/|migrations/)
+
+      - id: detect-private-key  # checking private keys in a project
+        exclude: ^(settings\.py|.idea/|.venv/|env/|\.git/|__pycache__/|\.env$|build/|dist/|migrations/)
+
+      - id: check-ast  # additional python syntax checking
+        exclude: ^(settings\.py|.idea/|.venv/|env/|\.git/|__pycache__/|\.env$|build/|dist/|migrations/)
+
+  - repo: 'https://github.com/pycqa/flake8'  # static code analyzer standard PEP8
+    rev: 7.2.0
+    hooks:
+      - id: flake8
+        additional_dependencies:
+          - flake8-bugbear
+
+  - repo: 'https://github.com/psf/black'  # formatter (changed the code to match a specific style)
+    rev: 25.1.0
+    hooks:
+      - id: black
+        # args: [ "--check", "--diff" ]  # set check only
+        files: ^(projects|users|tasks|skills|)/
+        exclude: ^migrations/
+
+  - repo: local
+    hooks:
+      - id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [ python ]
+        args: [ "-rn", "-sn", "--rcfile=.pylintrc", "--fail-on=I" ]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy  # static type analysis
+    rev: v1.15.0
+    hooks:
+      - id: mypy
+        args: [--config-file=pyproject.toml]
+        exclude: ".*/migrations/.*$|.*/settings.*$|tests|.git.*$|alembic"
+        require_serial: true
+
+  - repo: https://github.com/pycqa/isort  # formatter that sorts imports automatically
+    rev: 6.0.1
+    hooks:
+      - id: isort
+        name: isort (python)

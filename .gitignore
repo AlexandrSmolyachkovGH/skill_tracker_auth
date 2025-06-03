@@ -1,0 +1,14 @@
+venv
+.idea
+.env
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.db
+logs/
+certs/
+*.dir
+*.bak
+*.dat
+*.log
