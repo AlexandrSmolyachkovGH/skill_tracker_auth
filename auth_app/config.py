@@ -26,7 +26,7 @@ class Settings(BaseModel):
     @property
     def postgres_dsn(self) -> str:
         password = self.POSTGRES_PASSWORD.get_secret_value()
-        return f"postgres+asyncpg://" \
+        return f"postgresql+asyncpg://" \
                f"{self.POSTGRES_USER}:{password}" \
                f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}" \
                f"/{self.POSTGRES_DB}"
