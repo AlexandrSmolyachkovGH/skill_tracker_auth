@@ -22,6 +22,14 @@ class Settings(BaseModel):
     HASHING_DEPRECATED: SecretStr
     # JWT SECRET KEY
     KEY: SecretStr
+    # LOCALSTACK
+    SERVICES: str
+    AWS_ENDPOINT: str
+    AWS_DEFAULT_REGION: str
+    LOCALSTACK_HOST: str
+    DEBUG: str
+    AWS_ACCESS_KEY_ID: str
+    AWS_SECRET_ACCESS_KEY: str
 
     @property
     def postgres_dsn(self) -> str:
@@ -77,10 +85,20 @@ PASSWORD_HASHING = {
 JWT_KEY = {
     "KEY": os.getenv("KEY", "simple_key_123"),
 }
+LOCALSTACK = {
+    "SERVICES": os.getenv("SERVICES", "ses, s3"),
+    "AWS_ENDPOINT": os.getenv("AWS_ENDPOINT", "http://localstack:4566"),
+    "AWS_DEFAULT_REGION": os.getenv("AWS_DEFAULT_REGION", "us-east-1"),
+    "LOCALSTACK_HOST": os.getenv("LOCALSTACK_HOST", "localstack"),
+    "DEBUG": os.getenv("DEBUG", "1"),
+    "AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID", "test"),
+    "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY", "test"),
+}
 
 settings = Settings(
     **POSTGRES_CONFIG,
     **REDIS_CONFIG,
     **PASSWORD_HASHING,
     **JWT_KEY,
+    **LOCALSTACK,
 )

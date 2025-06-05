@@ -13,7 +13,6 @@ services:
     networks:
       - app_network
 
-
   redis:
     container_name: "skills_auth_redis"
     image: redis:7.4
@@ -30,9 +29,26 @@ services:
     volumes:
       - redis_data:/data
 
+  localstack:
+    container_name: localstack
+    environment:
+      - SERVICES=${SERVICES}
+      - AWS_ENDPOINT=${AWS_ENDPOINT}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - LOCALSTACK_HOST=${LOCALSTACK_HOST}
+      - DEBUG=${DEBUG}
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"
+    volumes:
+      - "localstack_data:/var/lib/localstack"
+    networks:
+      - app_network
+
 volumes:
   postgres_data:
   redis_data:
+  localstack_data:
 
 networks:
   app_network:

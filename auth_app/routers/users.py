@@ -3,14 +3,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_app.connect_db import get_db
+from auth_app.db.connect_db import get_db
 from auth_app.repositories.users import UserRepo
 from auth_app.schemas.users import (
     CreateUser,
-    DeleteUser,
     GetUser,
-    PatchUser,
-    PutUser,
     UserFilter,
 )
 
