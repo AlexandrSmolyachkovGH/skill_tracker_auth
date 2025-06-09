@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime, timedelta
 
-from sqlalchemy import Column, DateTime, ForeignKey, MetaData, String, Table
+from sqlalchemy import Column, DateTime, ForeignKey, String, Table
 from sqlalchemy.dialects.postgresql import UUID
 
-metadata_obj = MetaData()
+from auth_app.models.meta import metadata_obj
 
 
 def expire_date(n_days: int = 30) -> datetime:

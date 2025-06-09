@@ -3,10 +3,10 @@ from enum import Enum
 
 from sqlalchemy import Boolean, Column
 from sqlalchemy import Enum as Enum_Sql
-from sqlalchemy import MetaData, String, Table
+from sqlalchemy import String, Table
 from sqlalchemy.dialects.postgresql import UUID
 
-metadata_obj = MetaData()
+from auth_app.models.meta import metadata_obj
 
 
 class UserRole(str, Enum):

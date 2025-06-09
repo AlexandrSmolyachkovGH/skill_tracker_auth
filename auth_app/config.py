@@ -22,6 +22,9 @@ class Settings(BaseModel):
     HASHING_DEPRECATED: SecretStr
     # JWT SECRET KEY
     KEY: SecretStr
+    ALGORITHM: SecretStr
+    REFRESH_LASTING: int
+    ACCESS_LASTING: int
     # LOCALSTACK
     SERVICES: str
     AWS_ENDPOINT: str
@@ -82,8 +85,11 @@ PASSWORD_HASHING = {
     "HASHING_ALGORITHM": os.getenv("HASHING_ALGORITHM", "bcrypt"),
     "HASHING_DEPRECATED": os.getenv("HASHING_DEPRECATED", "auto"),
 }
-JWT_KEY = {
+JWT_CONF = {
     "KEY": os.getenv("KEY", "simple_key_123"),
+    "ALGORITHM": os.getenv("ALGORITHM", "HS256"),
+    "REFRESH_LASTING": int(os.getenv("LASTING", "1800")),
+    "ACCESS_LASTING": int(os.getenv("LASTING", "300")),
 }
 LOCALSTACK = {
     "SERVICES": os.getenv("SERVICES", "ses, s3"),
@@ -99,6 +105,6 @@ settings = Settings(
     **POSTGRES_CONFIG,
     **REDIS_CONFIG,
     **PASSWORD_HASHING,
-    **JWT_KEY,
+    **JWT_CONF,
     **LOCALSTACK,
 )

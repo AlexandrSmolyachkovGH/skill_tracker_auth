@@ -48,7 +48,7 @@ class CreateUser(BaseModel):
 
 class GetUser(BaseModel):
     id: UUID = Field(
-        description='Unique user identifier ',
+        description='Unique user identifier',
         example='123e4567-e89b-12d3-a456-426614174000',
     )
     email: EmailStr = Field(

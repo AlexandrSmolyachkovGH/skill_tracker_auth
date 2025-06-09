@@ -6,7 +6,9 @@ from sqlalchemy import pool
 from alembic import context
 
 from auth_app.config import settings
-from auth_app.models.users import metadata_obj
+from auth_app.models.meta import metadata_obj
+from auth_app.models.users import users
+from auth_app.models.tokens import refresh_tokens
 
 config = context.config
 if config.config_file_name is not None:

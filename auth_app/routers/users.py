@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from aiobotocore.client import AioBaseClient
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +11,8 @@ from auth_app.schemas.users import (
     GetUser,
     UserFilter,
 )
+from auth_app.services.aws.clients import get_ses_client
+from auth_app.services.aws.send_otp_email import send_confirmation_email
 
 user_router = APIRouter(
     prefix='/users',
@@ -71,6 +74,7 @@ async def get_users(
 async def create_user(
         user_data: CreateUser,
         user_repo: UserRepo = Depends(get_repository),
+        ses: AioBaseClient = Depends(get_ses_client)
 
 ) -> GetUser:
     record = await user_repo.create_user(user_data)
@@ -79,4 +83,9 @@ async def create_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Creation error"
         )
+    email_to = record.model_dump().get('email')
+    await send_confirmation_email(
+        email_to=email_to,
+        ses=ses,
+    )
     return record

@@ -10,6 +10,9 @@ from auth_app.schemas.users import (
     GetUser,
 )
 from auth_app.services.fields.users import UserFields
+from auth_app.services.utils.pwd_hashing import (
+    hash_password,
+)
 
 
 class UserRepo:
@@ -19,9 +22,11 @@ class UserRepo:
         self.session = session
 
     async def create_user(self, create_data: CreateUser) -> GetUser:
+        data = create_data.model_dump()
+        data['password_hash'] = hash_password(data.get('password_hash'))
         stmt = (
             insert(users)
-            .values(**create_data.model_dump())
+            .values(**data)
             .returning(*users.c)
         )
         result = await self.session.execute(stmt)

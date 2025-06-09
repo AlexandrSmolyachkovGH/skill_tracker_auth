@@ -1,10 +1,22 @@
 import uvicorn
 from fastapi import FastAPI
 
+from auth_app.routers.tokens import token_router
 from auth_app.routers.users import user_router
+from auth_app.services.aws.clients import get_ses_client
+from auth_app.services.aws.email_verification import verify_sender
 
 app = FastAPI()
 app.include_router(router=user_router)
+
+
+# app.include_router(router=token_router)
+
+
+@app.on_event("startup")
+async def on_startup() -> None:
+    async for ses in get_ses_client():
+        await verify_sender(ses)
 
 
 @app.get('/', tags=['temp'])
