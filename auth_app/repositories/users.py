@@ -1,11 +1,11 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import delete, insert, select, text, update
+from sqlalchemy import and_, delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_app.models.users import users
-from auth_app.schemas.users import (
+from auth_app.schemes.users import (
     CreateUser,
     GetUser,
 )
@@ -34,7 +34,7 @@ class UserRepo:
         row = result.mappings().one()
         return GetUser.model_validate(row)
 
-    async def get_user(self, user_id: UUID) -> GetUser | None:
+    async def get_user(self, user_id: UUID) -> GetUser:
         stmt = (
             select(users)
             .where(users.c.id == user_id)
@@ -44,17 +44,17 @@ class UserRepo:
         return GetUser.model_validate(row)
 
     async def get_users(self, filter_dict: Optional[dict]) -> list[GetUser]:
-        base_sql = f"""
-        SELECT {self.fields.get_fields_str()}
-        FROM users
-        """
-        if filter_dict:
-            where_clause = " AND ".join(
-                [f"users.{key} = :{key}" for key in filter_dict.keys()]
-            )
-            base_sql += where_clause
-        stmt = text(base_sql)
-        result = await self.session.execute(stmt, filter_dict or {})
+        stmt = select(users)
+        conditions = []
+        if not filter_dict:
+            filter_dict = {}
+        for k, v in filter_dict.items():
+            column = getattr(users.c, k, None)
+            if column is not None:
+                conditions.append(column == v)
+        if conditions:
+            stmt = stmt.where(and_(*conditions))
+        result = await self.session.execute(stmt)
         rows = result.mappings().fetchall()
         return [GetUser.model_validate(prt) for prt in rows]
 
@@ -66,6 +66,19 @@ class UserRepo:
             .returning(*users.c)
         )
         result = await self.session.execute(stmt)
+        await self.session.commit()
+        row = result.mappings().one()
+        return GetUser.model_validate(row)
+
+    async def patch_user(self, email: str, patch_dict: dict) -> GetUser:
+        stmt = (
+            update(users)
+            .where(users.c.email == email)
+            .values(**patch_dict)
+            .returning(*users.c)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
         row = result.mappings().one()
         return GetUser.model_validate(row)
 

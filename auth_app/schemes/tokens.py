@@ -5,16 +5,31 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field
 
 
-class CreateRefresh(BaseModel):
+class AuthData(BaseModel):
     email: EmailStr = Field(
-        description='Email address of verified account',
+        description='Unique email address',
         example='joe.0101@example.com',
     )
-    password_hash: str = Field(
-        description='Password of verified account',
+    password: str = Field(
+        description='Password of the user',
         example='MySecurePassword123!',
         min_length=6,
         max_length=100,
+    )
+
+
+class CreateRefresh(BaseModel):
+    user_id: UUID | str = Field(
+        description='Unique user identifier',
+        example='123e4567-e89b-12d3-a456-426614174000',
+    )
+    token: str = Field(
+        description='Refresh user token',
+        example='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ...',
+    )
+    expires_at: datetime = Field(
+        description='Date and time of token activity',
+        example='2025-01-01T15:34:00',
     )
 
 

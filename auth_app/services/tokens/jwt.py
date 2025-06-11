@@ -5,19 +5,20 @@ import jwt
 from auth_app.config import settings
 
 
-def get_refresh_response(token: str) -> dict[str, str]:
+def get_refresh_response(token: str, payload: dict) -> dict:
     return {
         "refresh_token": token,
+        "payload": payload,
     }
 
 
-def get_access_response(token: str) -> dict[str, str]:
+def get_access_response(token: str) -> dict:
     return {
         "access_token": token,
     }
 
 
-def generate_refresh(user_id: str, email: str) -> dict[str, str]:
+def generate_refresh(user_id: str, email: str) -> dict:
     payload = {
         "user_id": user_id,
         "email": email,
@@ -26,18 +27,18 @@ def generate_refresh(user_id: str, email: str) -> dict[str, str]:
     }
     token = jwt.encode(
         payload=payload,
-        key=settings.KEY,
-        algorithm=settings.ALGORITHM,
+        key=settings.KEY.get_secret_value(),
+        algorithm=settings.ALGORITHM.get_secret_value(),
     )
-    return get_refresh_response(token)
+    return get_refresh_response(token, payload)
 
 
 def generate_access(refresh_token: str) -> dict[str, str]:
     try:
         payload = jwt.decode(
             jwt=refresh_token,
-            key=settings.KEY,
-            algorithm=settings.ALGORITHM,
+            key=settings.KEY.get_secret_value(),
+            algorithm=settings.ALGORITHM.get_secret_value(),
         )
 
         token_type = payload.get("token_type")

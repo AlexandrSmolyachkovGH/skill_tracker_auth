@@ -5,12 +5,6 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field
 
 
-class StatusEnum(str, Enum):
-    PENDING = 'PENDING'
-    VERIFIED = 'VERIFIED'
-    DENIED = 'DENIED'
-
-
 class RoleEnum(str, Enum):
     ADMIN = 'ADMIN'
     USER = 'USER'
@@ -28,7 +22,7 @@ stuffer_roles = [
 ]
 
 
-class CreateUser(BaseModel):
+class AuthUserData(BaseModel):
     email: EmailStr = Field(
         description='Unique email address',
         example='joe.0101@example.com',
@@ -39,6 +33,9 @@ class CreateUser(BaseModel):
         min_length=6,
         max_length=100,
     )
+
+
+class CreateUser(AuthUserData):
     role: Optional[RoleEnum] = Field(
         description="User role in ['USER', 'ADMIN'] and etc",
         example='USER',
@@ -46,20 +43,10 @@ class CreateUser(BaseModel):
     )
 
 
-class GetUser(BaseModel):
+class GetUser(AuthUserData):
     id: UUID = Field(
         description='Unique user identifier',
         example='123e4567-e89b-12d3-a456-426614174000',
-    )
-    email: EmailStr = Field(
-        description='Unique email address',
-        example='joe.0101@example.com',
-    )
-    password_hash: str = Field(
-        description='Password of the user',
-        example='MySecurePassword123!',
-        min_length=6,
-        max_length=100,
     )
     role: RoleEnum = Field(
         description="User role in ['USER', 'ADMIN'] and etc",
@@ -69,12 +56,12 @@ class GetUser(BaseModel):
     is_verified: bool = Field(
         description="Verification status",
         example=True,
-        default=StatusEnum.PENDING,
+        default=False,
     )
     is_active: bool = Field(
         description="Activity status",
         example=True,
-        default=StatusEnum.PENDING,
+        default=True,
     )
 
 
@@ -82,43 +69,45 @@ class PatchUser(BaseModel):
     email: Optional[EmailStr] = Field(
         description='Unique email address',
         example='joe.0101@example.com',
+        default=None,
     )
     password_hash: Optional[str] = Field(
         description='Password of the user',
         example='MySecurePassword123!',
         min_length=6,
         max_length=100,
+        default=None,
+    )
+    is_verified: Optional[bool] = Field(
+        description="Verification status",
+        example=True,
+        default=False,
+    )
+    is_active: Optional[bool] = Field(
+        description="Activity status",
+        example=True,
+        default=True,
     )
 
 
-class PutUser(BaseModel):
-    email: EmailStr = Field(
-        description='Unique email address',
-        example='joe.0101@example.com',
+class PutUser(AuthUserData):
+    is_verified: bool = Field(
+        description="Verification status",
+        example=True,
+        default=False,
     )
-    password_hash: str = Field(
-        description='Password of the user',
-        example='MySecurePassword123!',
-        min_length=6,
-        max_length=100,
+    is_active: bool = Field(
+        description="Activity status",
+        example=True,
+        default=True,
     )
 
 
-class DeleteUser(BaseModel):
+class DeleteUser(AuthUserData):
     id: Optional[UUID] = Field(
         description='Unique user identifier ',
         example='123e4567-e89b-12d3-a456-426614174000',
-    )
-    email: Optional[EmailStr] = Field(
-        description='Unique email address',
-        example='joe.0101@example.com',
-    )
-    password_hash: str = Field(
-        description='Password of the user',
-        example='MySecurePassword123!',
-        min_length=6,
-        max_length=100,
-        default='',
+        default=None,
     )
 
 
@@ -126,8 +115,36 @@ class UserFilter(BaseModel):
     id: Optional[UUID] = Field(
         description='Unique user identifier ',
         example='123e4567-e89b-12d3-a456-426614174000',
+        default=None,
     )
     email: Optional[EmailStr] = Field(
         description='Unique email address',
         example='joe.0101@example.com',
+        default=None,
+    )
+    role: Optional[RoleEnum] = Field(
+        description="User role in ['USER', 'ADMIN'] and etc",
+        example='USER',
+        default=None,
+    )
+    is_verified: Optional[bool] = Field(
+        description="Verification status",
+        example=True,
+        default=None,
+    )
+    is_active: Optional[bool] = Field(
+        description="Activity status",
+        example=True,
+        default=None,
+    )
+
+
+class VerificationData(BaseModel):
+    email: EmailStr = Field(
+        description='Unique email address',
+        example='joe.0101@example.com',
+    )
+    verification_code: str = Field(
+        description='Valid OTP-code received via email',
+        example='123e4567',
     )

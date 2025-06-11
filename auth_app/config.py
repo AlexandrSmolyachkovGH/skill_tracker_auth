@@ -1,12 +1,10 @@
-import os
+from pathlib import Path
 
-import dotenv
-from pydantic import BaseModel, SecretStr
-
-dotenv.load_dotenv()
+from pydantic import SecretStr
+from pydantic_settings import BaseSettings
 
 
-class Settings(BaseModel):
+class Settings(BaseSettings):
     # POSTGRES
     POSTGRES_USER: str
     POSTGRES_PASSWORD: SecretStr
@@ -66,45 +64,9 @@ class Settings(BaseModel):
         deprecated_v = self.HASHING_DEPRECATED.get_secret_value()
         return algorithm_v, deprecated_v
 
+    class Config:
+        env_file = Path(__file__).resolve().parent.parent / ".env"
+        env_file_encoding = "utf-8"
 
-POSTGRES_CONFIG = {
-    "POSTGRES_USER": os.getenv("POSTGRES_USER", "pg_user"),
-    "POSTGRES_PASSWORD": os.getenv("POSTGRES_PASSWORD", "pg_pass"),
-    "POSTGRES_DB": os.getenv("POSTGRES_DB", "pg"),
-    "POSTGRES_HOST": os.getenv("POSTGRES_HOST", "db"),
-    "POSTGRES_PORT": int(os.getenv("POSTGRES_PORT", "5432")),
-}
 
-REDIS_CONFIG = {
-    "REDIS_HOST": os.getenv("REDIS_HOST", "db_redis"),
-    "REDIS_PORT": int(os.getenv("REDIS_PORT", "6379")),
-    "REDIS_PASSWORD": os.getenv("REDIS_PASSWORD", "redis_pass"),
-}
-
-PASSWORD_HASHING = {
-    "HASHING_ALGORITHM": os.getenv("HASHING_ALGORITHM", "bcrypt"),
-    "HASHING_DEPRECATED": os.getenv("HASHING_DEPRECATED", "auto"),
-}
-JWT_CONF = {
-    "KEY": os.getenv("KEY", "simple_key_123"),
-    "ALGORITHM": os.getenv("ALGORITHM", "HS256"),
-    "REFRESH_LASTING": int(os.getenv("LASTING", "1800")),
-    "ACCESS_LASTING": int(os.getenv("LASTING", "300")),
-}
-LOCALSTACK = {
-    "SERVICES": os.getenv("SERVICES", "ses, s3"),
-    "AWS_ENDPOINT": os.getenv("AWS_ENDPOINT", "http://localstack:4566"),
-    "AWS_DEFAULT_REGION": os.getenv("AWS_DEFAULT_REGION", "us-east-1"),
-    "LOCALSTACK_HOST": os.getenv("LOCALSTACK_HOST", "localstack"),
-    "DEBUG": os.getenv("DEBUG", "1"),
-    "AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID", "test"),
-    "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY", "test"),
-}
-
-settings = Settings(
-    **POSTGRES_CONFIG,
-    **REDIS_CONFIG,
-    **PASSWORD_HASHING,
-    **JWT_CONF,
-    **LOCALSTACK,
-)
+settings = Settings()
