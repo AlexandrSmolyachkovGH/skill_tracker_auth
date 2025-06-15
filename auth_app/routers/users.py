@@ -1,117 +1,128 @@
-from typing import Annotated
-from uuid import UUID
+from typing import Annotated, Optional
 
 from aiobotocore.client import AioBaseClient
 from fastapi import (
     APIRouter,
-    Body,
     Depends,
     HTTPException,
-    Path,
     Query,
+    Security,
     status,
 )
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_app.db.connect_db import get_db
 from auth_app.repositories.users import UserRepo
 from auth_app.schemes.users import (
-    AuthUserData,
+    CreateResponse,
     CreateUser,
     GetUser,
+    MessageResponse,
     PatchUser,
     UserFilter,
-    VerificationData,
 )
-from auth_app.services.aws.clients import get_ses_client
-from auth_app.services.aws.pwd_reset import reset_password
-from auth_app.services.aws.send_otp_email import send_confirmation_email
+from auth_app.services.aws.ses.clients import get_ses_client
+from auth_app.services.aws.ses.pwd_reset import reset_password
+from auth_app.services.aws.ses.send_otp_email import send_confirmation_email
+from auth_app.services.tokens.general import (
+    verify_admin,
+    verify_refresh,
+)
+from auth_app.services.tokens.security import oauth2_scheme
 from auth_app.services.users.verification import verify_otp
 from auth_app.services.utils.pwd_hashing import hash_password
 
 user_router = APIRouter(
-    prefix='/users',
-    tags=['users'],
+    prefix="/users",
+    tags=["users"],
 )
 
 
 # flake8: noqa: B008
 async def get_repository(
-        session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ) -> UserRepo:
     return UserRepo(session)
 
 
 @user_router.post(
-    path='/',
-    response_model=GetUser,
-    description='Create new user record',
+    path="/",
+    response_model=CreateResponse,
+    description="Create new user record",
     status_code=status.HTTP_201_CREATED,
 )
 async def create_user(
-        user_data: CreateUser,
-        user_repo: UserRepo = Depends(get_repository),
-        ses: AioBaseClient = Depends(get_ses_client)
-
-) -> GetUser:
+    user_data: CreateUser,
+    user_repo: UserRepo = Depends(get_repository),
+    ses: AioBaseClient = Depends(get_ses_client),
+) -> CreateResponse:
     record = await user_repo.create_user(user_data)
     if not record:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Creation error"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Creation error. Check the data and try again.",
         )
-    email_to = record.model_dump().get('email')
+    email_to = record.model_dump().get("email")
     await send_confirmation_email(
         email_to=email_to,
         ses=ses,
     )
-    return record
+    response = {
+        "record": record,
+        "message": f"Verification code was sent to email: {email_to}",
+    }
+    return CreateResponse.model_validate(response)
 
 
-@user_router.post(
-    path='/verification/get-code',
+@user_router.get(
+    path="/verification/get-code",
+    response_model=MessageResponse,
     description="Get verification code",
     status_code=status.HTTP_200_OK,
 )
 async def get_otp(
-        data: Annotated[AuthUserData, Body()],
-        ses: AioBaseClient = Depends(get_ses_client)
-) -> dict:
-    # pass check
-
+    token: HTTPAuthorizationCredentials = Security(oauth2_scheme),
+    ses: AioBaseClient = Depends(get_ses_client),
+) -> MessageResponse:
+    token = token.credentials
+    token, payload = verify_refresh(token)
     await send_confirmation_email(
-        email_to=data.email,
+        email_to=payload["email"],
         ses=ses,
     )
-    return {
-        'message': f'Your OTP-code was sent to {data.email}',
-        'status': status.HTTP_200_OK,
+    response = {
+        "message": f"Your OTP-code was sent to {payload['email']}",
     }
+    return MessageResponse.model_validate(response)
 
 
 @user_router.patch(
-    path='/verification/set-code',
+    path="/verification/set-code",
     response_model=GetUser,
-    description='Verify the user record',
+    description="Verify the user record",
     status_code=status.HTTP_200_OK,
 )
 async def verify_record(
-        data: Annotated[VerificationData, Body()],
-        user_repo: UserRepo = Depends(get_repository),
-) -> GetUser:
+    verification_code: str,
+    token: HTTPAuthorizationCredentials = Security(oauth2_scheme),
+    user_repo: UserRepo = Depends(get_repository),
+) -> Optional[GetUser]:
+    token = token.credentials
+    token, payload = verify_refresh(token)
     check = await verify_otp(
-        email=data.email,
-        code=data.verification_code,
+        email=payload["email"],
+        code=verification_code,
     )
     if not check:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Invalid or expired data'
+            detail='Invalid or expired data',
         )
     patch_model = PatchUser.model_validate({'is_verified': True})
     patch_dict = patch_model.model_dump(exclude_unset=True, exclude_none=True)
     result = await user_repo.patch_user(
-        email=data.email,
+        email=payload["email"],
         patch_dict=patch_dict,
     )
     return result
@@ -119,39 +130,44 @@ async def verify_record(
 
 @user_router.patch(
     path='/reset-password',
+    response_model=MessageResponse,
     description='Verify the user record',
     status_code=status.HTTP_200_OK,
 )
 async def reset_pwd(
-        email: Annotated[str, Query()],
-        user_repo: UserRepo = Depends(get_repository),
-        ses: AioBaseClient = Depends(get_ses_client),
-) -> dict:
-    new_pwd = await reset_password(email_to=email, ses=ses)
-    new_pwd_hash = hash_password(new_pwd)
-    patch_model = PatchUser.model_validate({'password_hash': new_pwd_hash})
+    token: HTTPAuthorizationCredentials = Security(oauth2_scheme),
+    user_repo: UserRepo = Depends(get_repository),
+    ses: AioBaseClient = Depends(get_ses_client),
+) -> MessageResponse:
+    token = token.credentials
+    token, payload = verify_refresh(token)
+    data = await reset_password(email_to=payload["email"], ses=ses)
+    new_pwd_hash = hash_password(data["new_password"])
+    patch_model = PatchUser.model_validate({"password_hash": new_pwd_hash})
     patch_dict = patch_model.model_dump(exclude_unset=True, exclude_none=True)
     await user_repo.patch_user(
-        email=email,
+        email=payload["email"],
         patch_dict=patch_dict,
     )
-    return {
-        'message': f'Your password was changed and sent to email: {email}',
-        'status': status.HTTP_200_OK,
+    response = {
+        "message": data.get("message"),
     }
+    return MessageResponse.model_validate(response)
 
 
 @user_router.get(
-    path='/{user_id}',
+    path='/me',
     response_model=GetUser,
     description="Retrieve the user by ID",
     status_code=status.HTTP_200_OK,
 )
 async def get_user(
-        user_id: UUID = Path(description="Filter by user ID"),
-        user_repo: UserRepo = Depends(get_repository),
+    token: HTTPAuthorizationCredentials = Security(oauth2_scheme),
+    user_repo: UserRepo = Depends(get_repository),
 ) -> GetUser:
-    record = await user_repo.get_user(user_id)
+    token = token.credentials
+    token, payload = verify_refresh(token)
+    record = await user_repo.get_user(payload["email"])
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -167,11 +183,15 @@ async def get_user(
     status_code=status.HTTP_200_OK,
 )
 async def get_users(
-        filter_model: Annotated[UserFilter, Query()],
-        user_repo: UserRepo = Depends(get_repository),
-
+    filter_model: Annotated[UserFilter, Query()],
+    token: HTTPAuthorizationCredentials = Security(oauth2_scheme),
+    user_repo: UserRepo = Depends(get_repository),
 ) -> list[GetUser]:
-    filter_dict = filter_model.model_dump(exclude_unset=True, exclude_none=True)
+    token = token.credentials
+    verify_admin(token)
+    filter_dict = filter_model.model_dump(
+        exclude_unset=True, exclude_none=True
+    )
     records = await user_repo.get_users(filter_dict=filter_dict)
     if not records:
         raise HTTPException(

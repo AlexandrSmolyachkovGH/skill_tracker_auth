@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
+from auth_app.schemes.users import RoleEnum
+
 
 class AuthData(BaseModel):
     email: EmailStr = Field(
@@ -15,6 +17,27 @@ class AuthData(BaseModel):
         example='MySecurePassword123!',
         min_length=6,
         max_length=100,
+    )
+
+
+class CreateData(BaseModel):
+    user_id: UUID | str = Field(
+        description='Unique user identifier',
+        example='123e4567-e89b-12d3-a456-426614174000',
+    )
+    email: EmailStr = Field(
+        description='Unique email address',
+        example='joe.0101@example.com',
+    )
+    role: str = Field(
+        description='User role',
+        example='USER',
+        default=RoleEnum.USER,
+    )
+    admin_secret: Optional[str] = Field(
+        description='Secret key to get admin settings',
+        example='123example%!',
+        default=None,
     )
 
 
@@ -69,4 +92,22 @@ class UpdateRefresh(BaseModel):
     token: str = Field(
         description='Refresh user token',
         example='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ...',
+    )
+    expires_at: datetime = Field(
+        description='Date and time of token activity',
+        example='2025-01-01T15:34:00',
+    )
+
+
+class CreateAccess(BaseModel):
+    refresh_token: str = Field(
+        description='Refresh user token',
+        example='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ...',
+    )
+
+
+class GetAccess(BaseModel):
+    message: dict[str, str] = Field(
+        description='Access user token',
+        example="{'token':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ...'}",
     )

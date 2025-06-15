@@ -30,7 +30,7 @@ repos:
     hooks:
       - id: black
         # args: [ "--check", "--diff" ]  # set check only
-        files: ^(projects|users|tasks|skills|)/
+        files: ^(auth_app/(repositories|routers|schemes|services)/.*\.py)$
         exclude: ^migrations/
 
   - repo: local

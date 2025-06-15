@@ -11,8 +11,8 @@ from auth_app.exeptions.handlers import (
 )
 from auth_app.routers.tokens import token_router
 from auth_app.routers.users import user_router
-from auth_app.services.aws.clients import get_ses_client
-from auth_app.services.aws.email_verification import verify_sender
+from auth_app.services.aws.ses.clients import get_ses_client
+from auth_app.services.aws.ses.email_verification import verify_sender
 
 app = FastAPI()
 app.include_router(router=user_router)
@@ -28,7 +28,7 @@ async def on_startup() -> None:
         await verify_sender(ses)
 
 
-@app.get('/', tags=['temp'])
+@app.get('/', tags=['root'])
 async def root() -> dict:
     return {
         'title': 'Skill Tracker Auth',

@@ -43,6 +43,12 @@ class CreateUser(AuthUserData):
     )
 
 
+class MessageResponse(BaseModel):
+    message: str = Field(
+        description='User message',
+    )
+
+
 class GetUser(AuthUserData):
     id: UUID = Field(
         description='Unique user identifier',
@@ -62,6 +68,12 @@ class GetUser(AuthUserData):
         description="Activity status",
         example=True,
         default=True,
+    )
+
+
+class CreateResponse(MessageResponse):
+    record: GetUser = Field(
+        description='CreateUser model',
     )
 
 

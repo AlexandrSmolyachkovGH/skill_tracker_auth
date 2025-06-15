@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     ALGORITHM: SecretStr
     REFRESH_LASTING: int
     ACCESS_LASTING: int
+    ADMIN_SECRET: SecretStr
     # LOCALSTACK
     SERVICES: str
     AWS_ENDPOINT: str
