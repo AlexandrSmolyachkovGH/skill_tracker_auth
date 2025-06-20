@@ -5,16 +5,15 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from auth_app.config import settings
-from auth_app.models.meta import metadata_obj
-from auth_app.models.users import users
-from auth_app.models.tokens import refresh_tokens
+from auth_app.config import pg_settings
+from auth_app.models.base import Base
+from auth_app.models.users import UserORM
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
-config.set_main_option("sqlalchemy.url", settings.postgres_dsn + "?async_fallback=True")
-target_metadata = metadata_obj
+config.set_main_option("sqlalchemy.url", pg_settings.postgres_dsn + "?async_fallback=True")
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:

@@ -1,9 +1,13 @@
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import (
+    BaseModel,
+    EmailStr,
+    Field,
+)
 
 
-class EmailPayload(BaseModel):
+class EmailPayloadScheme(BaseModel):
     message: str = Field(
         description='Message content',
         example='Test message example',

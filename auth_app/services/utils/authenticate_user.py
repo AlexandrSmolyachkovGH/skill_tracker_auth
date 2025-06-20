@@ -1,7 +1,7 @@
 from typing import Optional
 
 from auth_app.repositories.users import UserRepo
-from auth_app.schemes.users import GetUser
+from auth_app.schemes.users import GetUserScheme
 from auth_app.services.utils.pwd_hashing import verify_password
 
 
@@ -9,7 +9,7 @@ async def authenticate_user(
     email: str,
     password: str,
     user_repo: UserRepo,
-) -> Optional[GetUser]:
+) -> Optional[GetUserScheme]:
     users = await user_repo.get_users(
         {
             'email': email,

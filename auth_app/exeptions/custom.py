@@ -2,17 +2,21 @@ class AttrError(ValueError):
     pass
 
 
-class TokenError(ValueError):
-    pass
+class ServiceError(Exception):
+    """Base class for service-level business errors."""
 
 
-class UserVerificationError(ValueError):
+class TokenError(Exception):
+    """Base class for token related errors."""
+
+
+class UserVerificationError(ValueError, ServiceError):
     """
-    Error with verification user record status
+    Error with verification
     """
 
     def __init__(self) -> None:
-        message = "The user's record must be verified"
+        message = "The user is not verified or verification failed"
         super().__init__(message)
 
 

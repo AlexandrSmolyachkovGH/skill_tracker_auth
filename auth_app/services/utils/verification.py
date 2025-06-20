@@ -3,10 +3,13 @@ from auth_app.exeptions.custom import (
     UserActivityError,
     UserVerificationError,
 )
-from auth_app.schemes.users import GetUser
+from auth_app.schemes.users import GetUserScheme
 
 
-async def verify_otp(email: str, code: str) -> bool:
+async def verify_auth_code(
+    email: str,
+    code: str,
+) -> bool:
     """
     Compare the transmitted one-time password with the cached one
     """
@@ -15,7 +18,9 @@ async def verify_otp(email: str, code: str) -> bool:
     return cached_code == code
 
 
-async def check_auth_statuses(user_data: GetUser) -> None:
+async def check_auth_statuses(
+    user_data: GetUserScheme,
+) -> None:
     if not user_data.is_verified:
         raise UserVerificationError()
     if not user_data.is_active:

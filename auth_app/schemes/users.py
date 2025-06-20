@@ -2,7 +2,11 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import (
+    BaseModel,
+    EmailStr,
+    Field,
+)
 
 
 class RoleEnum(str, Enum):
@@ -22,7 +26,7 @@ stuffer_roles = [
 ]
 
 
-class AuthUserData(BaseModel):
+class AuthUserScheme(BaseModel):
     email: EmailStr = Field(
         description='Unique email address',
         example='joe.0101@example.com',
@@ -35,21 +39,26 @@ class AuthUserData(BaseModel):
     )
 
 
-class CreateUser(AuthUserData):
+class CreateUserScheme(AuthUserScheme):
     role: Optional[RoleEnum] = Field(
         description="User role in ['USER', 'ADMIN'] and etc",
         example='USER',
         default=RoleEnum.USER,
     )
 
+    class Config:
+        from_attributes = True
 
-class MessageResponse(BaseModel):
-    message: str = Field(
-        description='User message',
+
+class CreateUserExtendedScheme(CreateUserScheme):
+    admin_code: Optional[str] = Field(
+        description="Code to confirm administrator or staffer rights",
+        example='123CodeExample',
+        default=None,
     )
 
 
-class GetUser(AuthUserData):
+class GetUserScheme(AuthUserScheme):
     id: UUID = Field(
         description='Unique user identifier',
         example='123e4567-e89b-12d3-a456-426614174000',
@@ -70,14 +79,27 @@ class GetUser(AuthUserData):
         default=True,
     )
 
+    class Config:
+        from_attributes = True
 
-class CreateResponse(MessageResponse):
-    record: GetUser = Field(
-        description='CreateUser model',
+
+class PutUserScheme(AuthUserScheme):
+    is_verified: bool = Field(
+        description="Verification status",
+        example=True,
+        default=False,
+    )
+    is_active: bool = Field(
+        description="Activity status",
+        example=True,
+        default=True,
     )
 
+    class Config:
+        from_attributes = True
 
-class PatchUser(BaseModel):
+
+class PatchUserScheme(BaseModel):
     email: Optional[EmailStr] = Field(
         description='Unique email address',
         example='joe.0101@example.com',
@@ -101,29 +123,22 @@ class PatchUser(BaseModel):
         default=True,
     )
 
-
-class PutUser(AuthUserData):
-    is_verified: bool = Field(
-        description="Verification status",
-        example=True,
-        default=False,
-    )
-    is_active: bool = Field(
-        description="Activity status",
-        example=True,
-        default=True,
-    )
+    class Config:
+        from_attributes = True
 
 
-class DeleteUser(AuthUserData):
+class DeleteUserScheme(AuthUserScheme):
     id: Optional[UUID] = Field(
         description='Unique user identifier ',
         example='123e4567-e89b-12d3-a456-426614174000',
         default=None,
     )
 
+    class Config:
+        from_attributes = True
 
-class UserFilter(BaseModel):
+
+class UserFilterScheme(BaseModel):
     id: Optional[UUID] = Field(
         description='Unique user identifier ',
         example='123e4567-e89b-12d3-a456-426614174000',
@@ -150,8 +165,11 @@ class UserFilter(BaseModel):
         default=None,
     )
 
+    class Config:
+        from_attributes = True
 
-class VerificationData(BaseModel):
+
+class VerificationScheme(BaseModel):
     email: EmailStr = Field(
         description='Unique email address',
         example='joe.0101@example.com',
@@ -160,3 +178,24 @@ class VerificationData(BaseModel):
         description='Valid OTP-code received via email',
         example='123e4567',
     )
+
+    class Config:
+        from_attributes = True
+
+
+class MessageResponseScheme(BaseModel):
+    message: str = Field(
+        description='User message',
+    )
+
+    class Config:
+        from_attributes = True
+
+
+class CreateResponseScheme(MessageResponseScheme):
+    record: GetUserScheme = Field(
+        description='CreateUser model',
+    )
+
+    class Config:
+        from_attributes = True

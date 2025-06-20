@@ -1,8 +1,8 @@
 import redis.asyncio as redis
 
-from auth_app.config import settings
+from auth_app.config import redis_settings
 
 redis_client = redis.from_url(
-    settings.redis_dsn,
+    redis_settings.redis_dsn,
     decode_responses=True,
 )

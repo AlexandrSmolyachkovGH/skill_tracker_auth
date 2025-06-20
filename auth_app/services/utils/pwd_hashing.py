@@ -1,10 +1,10 @@
 from passlib.context import CryptContext
 
-from auth_app.config import settings
+from auth_app.config import pwd_settings
 
 pwd_context = CryptContext(
-    schemes=[settings.HASHING_ALGORITHM.get_secret_value()],
-    deprecated=[settings.HASHING_DEPRECATED.get_secret_value()],
+    schemes=[pwd_settings.HASHING_ALGORITHM.get_secret_value()],
+    deprecated=[pwd_settings.HASHING_DEPRECATED.get_secret_value()],
 )
 
 

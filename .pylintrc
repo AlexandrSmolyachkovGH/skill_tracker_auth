@@ -5,7 +5,8 @@ ignore-paths=^\.git.*$,
              .*/migrations/.*$,
              .*/tests/.*$,
              .*/settings.*$,
-             .*/base.py
+             .*/base.py,
+             .*/models/.*$,
 jobs=1
 
 [MESSAGES CONTROL]

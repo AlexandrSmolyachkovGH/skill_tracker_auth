@@ -1,26 +1,26 @@
 from aiobotocore.client import AioBaseClient
 
-from auth_app.schemes.email import EmailPayload
+from auth_app.schemes.email import EmailPayloadScheme
 
 
 def generate_email_payload(
     message: str,
     subject: str,
     source: str | None = None,
-) -> EmailPayload:
+) -> EmailPayloadScheme:
     payload = {
         'message': message,
         'subject': subject,
     }
     if source:
         payload['source'] = source
-    return EmailPayload(**payload)
+    return EmailPayloadScheme(**payload)
 
 
 async def send_email(
     email_to: str,
     ses: AioBaseClient,
-    payload: EmailPayload,
+    payload: EmailPayloadScheme,
 ) -> None:
     """
     Basic email sending
