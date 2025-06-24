@@ -2,6 +2,10 @@ class AttrError(ValueError):
     pass
 
 
+class TransactionError(Exception):
+    """Base class for catching transaction errors."""
+
+
 class ServiceError(Exception):
     """Base class for service-level business errors."""
 

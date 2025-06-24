@@ -4,9 +4,22 @@ from fastapi.responses import JSONResponse
 from auth_app.exeptions.custom import (
     ServiceError,
     TokenError,
+    TransactionError,
     UserActivityError,
     UserVerificationError,
 )
+
+
+async def transaction_error_handler(
+    request: Request,
+    exc: TransactionError,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={
+            "detail": str(exc)
+        },
+    )
 
 
 async def user_verification_exception_handler(

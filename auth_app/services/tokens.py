@@ -3,8 +3,6 @@ from datetime import datetime
 from auth_app.config import jwt_settings
 from auth_app.exeptions.custom import ServiceError
 from auth_app.models import RefreshTokenORM
-from auth_app.repositories.tokens import TokenRepo
-from auth_app.repositories.users import UserRepo
 from auth_app.schemes.tokens import (
     CreateDataScheme,
     CreateRefreshScheme,
@@ -12,6 +10,8 @@ from auth_app.schemes.tokens import (
     UpdateRefreshScheme,
 )
 from auth_app.schemes.users import AuthUserScheme
+from auth_app.services.service_container import ServiceContainer
+from auth_app.services.ses.ses_handler import ses_handler
 from auth_app.services.utils.authenticate_user import authenticate_user
 from auth_app.services.utils.token_handler import (
     TokenData,
@@ -23,9 +23,11 @@ class TokenService:
     @staticmethod
     async def get_refresh_token(
         auth_data: AuthUserScheme,
-        repo: TokenRepo,
-        user_repo: UserRepo,
+        conn_container: ServiceContainer,
     ) -> RefreshTokenORM:
+        user_repo = await conn_container.get_user_repo()
+        repo = await conn_container.get_token_repo()
+
         user = await authenticate_user(
             email=auth_data.email,
             password=auth_data.password_hash,
@@ -43,9 +45,11 @@ class TokenService:
     @staticmethod
     async def create_refresh_token(
         auth_data: RoleDataScheme,
-        repo: TokenRepo,
-        user_repo: UserRepo,
+        conn_container: ServiceContainer,
     ) -> RefreshTokenORM:
+        user_repo = await conn_container.get_user_repo()
+        repo = await conn_container.get_token_repo()
+
         user = await authenticate_user(
             email=auth_data.email,
             password=auth_data.password_hash,
@@ -83,8 +87,9 @@ class TokenService:
     @staticmethod
     async def exchange_refresh_token(
         token_data: TokenData,
-        repo: TokenRepo,
+        conn_container: ServiceContainer,
     ) -> RefreshTokenORM:
+
         token_data = token_handler.requre_expired(token_data.token)
         is_user = token_data.payload.get("role") == "USER"
         admin_secret = (
@@ -101,6 +106,8 @@ class TokenService:
         new_payload = new_token_data.get("payload")
         if not isinstance(new_payload, dict):
             raise ServiceError("Invalid payload format")
+
+        repo = await conn_container.get_token_repo()
         expires_at = new_payload["expires"]
         result = await repo.update_refresh(
             old_token=token_data.token,
@@ -116,10 +123,11 @@ class TokenService:
     @staticmethod
     async def create_access_token(
         token_data: TokenData,
-        user_repo: UserRepo,
+        conn_container: ServiceContainer,
     ) -> dict[str, str]:
         token_data = token_handler.verify_refresh(token_data.token)
-        user = await user_repo.get_user(token_data.payload["email"])
+        user_repo = await conn_container.get_user_repo()
+        user = await user_repo.get_user(token_data.payload["user_id"])
 
         if not user or not user.is_verified or not user.is_active:
             raise ServiceError("User must be verified")

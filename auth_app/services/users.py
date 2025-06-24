@@ -1,5 +1,3 @@
-from aiobotocore.client import AioBaseClient
-
 from auth_app.config import jwt_settings
 from auth_app.exeptions.custom import (
     ServiceError,
@@ -7,7 +5,6 @@ from auth_app.exeptions.custom import (
 )
 from auth_app.messages.common import msg_creator
 from auth_app.models import UserORM
-from auth_app.repositories.users import UserRepo
 from auth_app.schemes.users import (
     CreateResponseScheme,
     CreateUserExtendedScheme,
@@ -16,10 +13,8 @@ from auth_app.schemes.users import (
     PatchUserScheme,
     RoleEnum,
 )
-from auth_app.services.ses.pwd_reset import reset_password
-from auth_app.services.ses.send_verification_code import (
-    send_confirmation_email,
-)
+from auth_app.services.service_container import ServiceContainer
+from auth_app.services.ses.ses_handler import ses_handler
 from auth_app.services.utils.pwd_hashing import hash_password
 from auth_app.services.utils.verification import verify_auth_code
 
@@ -28,7 +23,7 @@ class UserService:
     @staticmethod
     async def create_user_record(
         user_data: CreateUserExtendedScheme,
-        user_repo: UserRepo,
+        conn_container: ServiceContainer,
     ) -> UserORM:
         if user_data.role != RoleEnum.USER:
             if (
@@ -36,18 +31,22 @@ class UserService:
                 != jwt_settings.ADMIN_SECRET.get_secret_value()
             ):
                 raise ServiceError("Invalid role or permission code")
+        user_repo = await conn_container.get_user_repo()
         record = await user_repo.create_user(user_data)
         return record
 
     @staticmethod
     async def create_init_code_message(
         record: UserORM,
-        ses: AioBaseClient,
+        conn_container: ServiceContainer,
     ) -> CreateResponseScheme:
+        ses = await conn_container.get_ses()
+        redis_client = await conn_container.get_redis()
         email_to = record.email
-        await send_confirmation_email(
+        await ses_handler.send_confirmation_email(
             email_to=email_to,
             ses=ses,
+            redis_client=redis_client,
         )
         response = {
             "record": GetUserScheme.model_validate(record),
@@ -58,12 +57,15 @@ class UserService:
     @staticmethod
     async def create_verification_code(
         payload: dict,
-        ses: AioBaseClient,
+        conn_container: ServiceContainer,
     ) -> MessageResponseScheme:
+        ses = await conn_container.get_ses()
+        redis_client = await conn_container.get_redis()
         email_to = payload["email"]
-        await send_confirmation_email(
+        await ses_handler.send_confirmation_email(
             email_to=email_to,
             ses=ses,
+            redis_client=redis_client,
         )
         response = {
             "message": msg_creator.get_code_message(email_to),
@@ -74,8 +76,9 @@ class UserService:
     async def execute_verification(
         verification_code: str,
         payload: dict,
-        repo: UserRepo,
+        conn_container: ServiceContainer,
     ) -> UserORM:
+        repo = await conn_container.get_user_repo()
         email_to = payload["email"]
         check = await verify_auth_code(
             email=email_to,
@@ -89,7 +92,7 @@ class UserService:
             exclude_defaults=True,
         )
         result = await repo.update_user(
-            email=email_to,
+            user_id=payload["id"],
             patch_dict=patch_dict,
         )
         if not result:
@@ -99,11 +102,12 @@ class UserService:
     @staticmethod
     async def reset_password(
         payload: dict,
-        repo: UserRepo,
-        ses: AioBaseClient,
+        conn_container: ServiceContainer,
     ) -> dict:
+        repo = await conn_container.get_user_repo()
+        ses = await conn_container.get_ses()
         email_to = payload["email"]
-        data = await reset_password(email_to=email_to, ses=ses)
+        data = await ses_handler.reset_password(email_to=email_to, ses=ses)
         new_pwd_hash = hash_password(data["new_password"])
         patch_model = PatchUserScheme(password_hash=new_pwd_hash)
         patch_dict = patch_model.model_dump(
@@ -111,7 +115,7 @@ class UserService:
             exclude_defaults=True,
         )
         record = await repo.update_user(
-            email=email_to,
+            user_id=payload["id"],
             patch_dict=patch_dict,
         )
         if not record:

@@ -1,9 +1,9 @@
+from typing import cast
+
 from sqlalchemy import (
-    and_,
     select,
     update,
 )
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from auth_app.models.users import UserORM
 from auth_app.repositories.base import BaseRepo
@@ -16,29 +16,41 @@ from auth_app.services.utils.pwd_hashing import (
 
 
 class UserRepo(BaseRepo):
+    @staticmethod
+    def _build_filter_condition(
+        filter_dict: dict,
+    ) -> list:
+        conditions = []
+        for k, v in filter_dict.items():
+            column = getattr(UserORM, k, None)
+            if column is not None:
+                if v is not None:
+                    conditions.append(column == v)
+                else:
+                    conditions.append(column.is_(None))
+        return conditions
 
     async def create_user(
         self,
         create_data: CreateUserExtendedScheme,
     ) -> UserORM:
-        try:
-            data = create_data.model_dump()
-            data.pop("admin_code", None)
-            data['password_hash'] = hash_password(data.get('password_hash'))
-            stmt = pg_insert(UserORM).values(**data).returning(UserORM)
-            result = await self.session.execute(stmt)
-            await self.session.commit()
-            return result.scalar_one()
-        except Exception as e:
-            await self.session.rollback()
-            print("Ошибка при создании пользователя:", e)
-            raise
+
+        data = create_data.model_dump()
+        data.pop("admin_code", None)
+        data['password_hash'] = hash_password(data.get('password_hash'))
+        orm_data = UserORM(**data)
+
+        self.session.add(orm_data)
+        await self.session.flush()
+        await self.session.refresh(orm_data)
+
+        return orm_data
 
     async def get_user(
         self,
-        email: str,
+        user_id: str,
     ) -> UserORM | None:
-        stmt = select(UserORM).where(UserORM.email == email)
+        stmt = select(UserORM).where(UserORM.id == user_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -47,30 +59,25 @@ class UserRepo(BaseRepo):
         filter_dict: dict | None,
     ) -> list[UserORM]:
         stmt = select(UserORM)
-        conditions = []
-        if not filter_dict:
-            filter_dict = {}
-        for k, v in filter_dict.items():
-            column = getattr(UserORM, k, None)
-            if column is not None:
-                conditions.append(column == v)
+        filter_dict = filter_dict or {}
+        conditions = self._build_filter_condition(filter_dict=filter_dict)
         if conditions:
-            stmt = stmt.where(and_(*conditions))
+            stmt = stmt.where(*conditions)
         result = await self.session.execute(stmt)
-        return list(result.scalars().all())
+        return cast(list, result.scalars().all())
 
     async def update_user(
         self,
-        email: str,
+        user_id: str,
         patch_dict: dict,
     ) -> UserORM | None:
         stmt = (
             update(UserORM)
-            .where(UserORM.email == email)
+            .where(UserORM.id == user_id)
             .values(**patch_dict)
             .returning(UserORM)
         )
+
         row = await self.session.execute(stmt)
-        await self.session.commit()
         result = row.scalars().first()
         return result

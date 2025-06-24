@@ -11,8 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_app.db.connect_db import get_db
 from auth_app.repositories.tokens import TokenRepo
-from auth_app.repositories.users import UserRepo
-from auth_app.routers.users import get_repository as get_user_repo
 from auth_app.schemes.tokens import (
     GetAccessScheme,
     GetRefreshScheme,
@@ -20,6 +18,10 @@ from auth_app.schemes.tokens import (
 )
 from auth_app.schemes.users import (
     AuthUserScheme,
+)
+from auth_app.services.service_container import (
+    ServiceContainer,
+    get_service_container,
 )
 from auth_app.services.tokens import token_service
 from auth_app.services.utils.token_handler import (
@@ -46,13 +48,11 @@ async def get_repository(session: AsyncSession = Depends(get_db)) -> TokenRepo:
 )
 async def get_refresh(
     auth_data: Annotated[AuthUserScheme, Body()],
-    repo: TokenRepo = Depends(get_repository),
-    user_repo: UserRepo = Depends(get_user_repo),
+    conn_container: ServiceContainer = Depends(get_service_container),
 ) -> GetRefreshScheme:
     token = await token_service.get_refresh_token(
         auth_data=auth_data,
-        repo=repo,
-        user_repo=user_repo,
+        conn_container=conn_container,
     )
     return GetRefreshScheme.model_validate(token)
 
@@ -65,15 +65,15 @@ async def get_refresh(
 )
 async def create_refresh(
     auth_data: Annotated[RoleDataScheme, Body()],
-    repo: TokenRepo = Depends(get_repository),
-    user_repo: UserRepo = Depends(get_user_repo),
+    conn_container: ServiceContainer = Depends(get_service_container),
 ) -> GetRefreshScheme:
     try:
+        await conn_container.begin_transaction()
         token = await token_service.create_refresh_token(
             auth_data=auth_data,
-            repo=repo,
-            user_repo=user_repo,
+            conn_container=conn_container,
         )
+        await conn_container.commit()
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"{e}"
@@ -89,12 +89,14 @@ async def create_refresh(
 )
 async def exchange_refresh(
     token_data: TokenData = Depends(get_current_token_payload),
-    repo: TokenRepo = Depends(get_repository),
+    conn_container: ServiceContainer = Depends(get_service_container),
 ) -> GetRefreshScheme:
+    await conn_container.begin_transaction()
     token = await token_service.exchange_refresh_token(
         token_data=token_data,
-        repo=repo,
+        conn_container=conn_container,
     )
+    await conn_container.commit()
     return GetRefreshScheme.model_validate(token)
 
 
@@ -106,10 +108,10 @@ async def exchange_refresh(
 )
 async def create_access(
     token_data: TokenData = Depends(get_current_token_payload),
-    user_repo: UserRepo = Depends(get_user_repo),
+    conn_container: ServiceContainer = Depends(get_service_container),
 ) -> GetAccessScheme:
     token = await token_service.create_access_token(
         token_data=token_data,
-        user_repo=user_repo,
+        conn_container=conn_container,
     )
     return GetAccessScheme(message=token)

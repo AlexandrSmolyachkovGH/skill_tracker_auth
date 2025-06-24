@@ -4,7 +4,6 @@ from sqlalchemy import (
     select,
     update,
 )
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from auth_app.models.tokens import RefreshTokenORM
 from auth_app.repositories.base import BaseRepo
@@ -20,14 +19,11 @@ class TokenRepo(BaseRepo):
         self,
         create_data: CreateRefreshScheme,
     ) -> RefreshTokenORM:
-        stmt = (
-            pg_insert(RefreshTokenORM)
-            .values(**create_data.model_dump())
-            .returning(RefreshTokenORM)
-        )
-        result = await self.session.execute(stmt)
-        await self.session.commit()
-        return result.scalar_one()
+        orm_data = RefreshTokenORM(**create_data.model_dump())
+        self.session.add(orm_data)
+        await self.session.flush()
+        await self.session.refresh(orm_data)
+        return orm_data
 
     async def get_refresh(
         self,
@@ -50,6 +46,6 @@ class TokenRepo(BaseRepo):
             .values(**update_data.model_dump())
             .returning(RefreshTokenORM)
         )
+
         result = await self.session.execute(stmt)
-        await self.session.commit()
         return result.scalar_one_or_none()

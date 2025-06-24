@@ -70,6 +70,8 @@ class AWSSettings(BaseConfig):
     DEBUG: str
     AWS_ACCESS_KEY_ID: SecretStr
     AWS_SECRET_ACCESS_KEY: SecretStr
+    RESET_PWD_LENGTH: int
+    VERIFICATION_CODE_LENGTH: int
 
 
 pg_settings = PostgresSettings()

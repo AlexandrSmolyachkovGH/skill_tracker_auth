@@ -1,6 +1,7 @@
 from typing import AsyncGenerator
 
 from aioboto3 import Session
+from aiobotocore.client import AioBaseClient
 
 from auth_app.config import aws_settings
 
@@ -9,7 +10,7 @@ def get_aws_session() -> Session:
     return Session()
 
 
-async def get_ses_client() -> AsyncGenerator:
+async def get_ses_client() -> AsyncGenerator[AioBaseClient, None]:
     session = get_aws_session()
     async with session.client(
         "ses",
