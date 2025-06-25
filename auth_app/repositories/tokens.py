@@ -19,21 +19,21 @@ class TokenRepo(BaseRepo):
         self,
         create_data: CreateRefreshScheme,
     ) -> RefreshTokenORM:
-        orm_data = RefreshTokenORM(**create_data.model_dump())
-        self.session.add(orm_data)
+        token_orm = RefreshTokenORM(**create_data.model_dump())
+        self.session.add(token_orm)
         await self.session.flush()
-        await self.session.refresh(orm_data)
-        return orm_data
+        await self.session.refresh(token_orm)
+        return token_orm
 
     async def get_refresh(
         self,
         user_id: UUID,
     ) -> RefreshTokenORM | None:
         stmt = select(RefreshTokenORM).where(
-            RefreshTokenORM.user_id == user_id
+            RefreshTokenORM.user_id == str(user_id)
         )
-        result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        token_orm = await self.session.execute(stmt)
+        return token_orm.scalar_one_or_none()
 
     async def update_refresh(
         self,
@@ -47,5 +47,5 @@ class TokenRepo(BaseRepo):
             .returning(RefreshTokenORM)
         )
 
-        result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        token_orm = await self.session.execute(stmt)
+        return token_orm.scalar_one_or_none()

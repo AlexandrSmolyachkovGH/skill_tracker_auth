@@ -1,16 +1,18 @@
+from uuid import UUID
+
 from aiobotocore.client import AioBaseClient
 from fastapi import Depends
 from redis.asyncio.client import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_app.config import jwt_settings
-from auth_app.db.connect_db import get_db
 from auth_app.db.connect_redis import get_redis_client
 from auth_app.exeptions.custom import (
     ServiceError,
     UserVerificationError,
 )
 from auth_app.messages.common import msg_creator
+from auth_app.middleware.db_session import get_db_from_request
 from auth_app.models import UserORM
 from auth_app.repositories.tokens import TokenRepo
 from auth_app.repositories.users import UserRepo
@@ -36,10 +38,26 @@ class UserService:
         redis: Redis,
         ses: AioBaseClient,
     ) -> None:
-        self.user_repo = user_repo
-        self.token_repo = token_repo
-        self.redis = redis
-        self.ses = ses
+        self.__user_repo = user_repo
+        self.__token_repo = token_repo
+        self.__redis = redis
+        self.__ses = ses
+
+    @property
+    def user_repo(self) -> UserRepo:
+        return self.__user_repo
+
+    @property
+    def token_repo(self) -> TokenRepo:
+        return self.__token_repo
+
+    @property
+    def redis(self) -> Redis:
+        return self.__redis
+
+    @property
+    def ses(self) -> AioBaseClient:
+        return self.__ses
 
     async def create_user_record(
         self,
@@ -103,7 +121,7 @@ class UserService:
             exclude_defaults=True,
         )
         result = await self.user_repo.update_user(
-            user_id=payload["id"],
+            user_id=UUID(payload["user_id"]),
             patch_dict=patch_dict,
         )
         if not result:
@@ -126,7 +144,7 @@ class UserService:
             exclude_defaults=True,
         )
         record = await self.user_repo.update_user(
-            user_id=payload["id"],
+            user_id=UUID(payload["user_id"]),
             patch_dict=patch_dict,
         )
         if not record:
@@ -138,7 +156,7 @@ class UserService:
 
 
 async def get_user_service(
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_db_from_request),
     redis: Redis = Depends(get_redis_client),
     ses: AioBaseClient = Depends(get_ses_client),
 ) -> UserService:

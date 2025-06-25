@@ -16,10 +16,6 @@ from auth_app.schemes.users import (
     MessageResponseScheme,
     UserFilterScheme,
 )
-from auth_app.services.service_container import (
-    ServiceContainer,
-    get_service_container,
-)
 from auth_app.services.users import (
     UserService,
     get_user_service,
@@ -46,14 +42,12 @@ async def create_user(
     user_data: Annotated[CreateUserExtendedScheme, Body()],
     user_service: UserService = Depends(get_user_service),
 ) -> CreateResponseScheme:
-    await user_service.user_repo.session.begin()
     record = await user_service.create_user_record(
         user_data=user_data,
     )
     user = await user_service.create_init_code_message(
         record=record,
     )
-    await user_service.user_repo.session.commit()
     return CreateResponseScheme.model_validate(user)
 
 
@@ -84,12 +78,10 @@ async def verify_record(
     token_data: TokenData = Depends(get_current_token_payload),
     user_service: UserService = Depends(get_user_service),
 ) -> GetUserScheme:
-    await user_service.user_repo.session.begin()
     user = await user_service.execute_verification(
         verification_code=verification_code,
         payload=token_data.payload,
     )
-    await user_service.user_repo.session.commit()
     return GetUserScheme.model_validate(user)
 
 
@@ -103,11 +95,9 @@ async def reset_pwd(
     token_data: TokenData = Depends(get_current_token_payload),
     user_service: UserService = Depends(get_user_service),
 ) -> MessageResponseScheme:
-    await user_service.user_repo.session.begin()
     result = await user_service.reset_password(
         payload=token_data.payload,
     )
-    await user_service.user_repo.session.commit()
     return MessageResponseScheme.model_validate(result)
 
 

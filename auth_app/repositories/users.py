@@ -1,4 +1,5 @@
 from typing import cast
+from uuid import UUID
 
 from sqlalchemy import (
     select,
@@ -34,21 +35,21 @@ class UserRepo(BaseRepo):
         data = create_data.model_dump()
         data.pop("admin_code", None)
         data['password_hash'] = hash_password(data.get('password_hash'))
-        orm_data = UserORM(**data)
+        user_orm = UserORM(**data)
 
-        self.session.add(orm_data)
+        self.session.add(user_orm)
         await self.session.flush()
-        await self.session.refresh(orm_data)
+        await self.session.refresh(user_orm)
 
-        return orm_data
+        return user_orm
 
     async def get_user(
         self,
-        user_id: str,
+        user_id: UUID,
     ) -> UserORM | None:
         stmt = select(UserORM).where(UserORM.id == user_id)
-        result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        user_orm = await self.session.execute(stmt)
+        return user_orm.scalar_one_or_none()
 
     async def get_users(
         self,
@@ -59,12 +60,12 @@ class UserRepo(BaseRepo):
         conditions = self._build_filter_condition(filter_dict=filter_dict)
         if conditions:
             stmt = stmt.where(*conditions)
-        result = await self.session.execute(stmt)
-        return cast(list, result.scalars().all())
+        users_orm = await self.session.execute(stmt)
+        return cast(list, users_orm.scalars().all())
 
     async def update_user(
         self,
-        user_id: str,
+        user_id: UUID,
         patch_dict: dict,
     ) -> UserORM | None:
         stmt = (
@@ -75,5 +76,5 @@ class UserRepo(BaseRepo):
         )
 
         row = await self.session.execute(stmt)
-        result = row.scalars().first()
-        return result
+        user_orm = row.scalars().first()
+        return user_orm

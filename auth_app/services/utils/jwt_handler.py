@@ -44,7 +44,7 @@ class JWTHandler:
         if create_data.role != "USER" and create_data.admin_secret != secret:
             raise TokenError('Invalid admin secret')
         payload = {
-            "user_id": create_data.user_id,
+            "user_id": str(create_data.user_id),
             "email": create_data.email,
             "role": create_data.role,
             "expires": time.time() + jwt_settings.REFRESH_LASTING,

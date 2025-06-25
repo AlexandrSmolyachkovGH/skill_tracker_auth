@@ -16,6 +16,7 @@ from auth_app.exeptions.handlers import (
     user_verification_exception_handler,
 )
 from auth_app.messages.common import msg_creator
+from auth_app.middleware.db_session import DBSessionMiddleware
 from auth_app.routers.tokens import token_router
 from auth_app.routers.users import user_router
 from auth_app.services.ses.clients import get_ses_client
@@ -30,6 +31,8 @@ app.add_exception_handler(UserVerificationError, user_verification_exception_han
 app.add_exception_handler(TokenError, token_verification_handler)
 app.add_exception_handler(ServiceError, service_error_handler)
 app.add_exception_handler(TransactionError, transaction_error_handler)
+
+app.add_middleware(DBSessionMiddleware)
 
 
 @app.on_event("startup")

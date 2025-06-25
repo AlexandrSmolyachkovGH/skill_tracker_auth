@@ -14,8 +14,8 @@ from auth_app.schemes.email import EmailPayloadScheme
 
 class SesHandler:
 
-    @staticmethod
     def generate_email_payload(
+        self,
         message: str,
         subject: str,
         source: str | None = None,
@@ -28,8 +28,8 @@ class SesHandler:
             payload['source'] = source
         return EmailPayloadScheme(**payload)
 
-    @staticmethod
     async def send_email(
+        self,
         email_to: str,
         ses: AioBaseClient,
         payload: EmailPayloadScheme,
@@ -54,8 +54,8 @@ class SesHandler:
             Source=payload.source,
         )
 
-    @staticmethod
     async def verify_sender(
+        self,
         ses: AioBaseClient,
     ) -> None:
         await ses.verify_email_identity(EmailAddress="sender@example.com")
@@ -84,8 +84,8 @@ class SesHandler:
             'new_password': password,
         }
 
-    @staticmethod
     def generate_otp(
+        self,
         length: int = aws_settings.VERIFICATION_CODE_LENGTH,
     ) -> str:
         """
