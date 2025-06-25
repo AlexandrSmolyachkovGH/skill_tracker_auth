@@ -1,10 +1,19 @@
+from aiobotocore.client import AioBaseClient
+from fastapi import Depends
+from redis.asyncio.client import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from auth_app.config import jwt_settings
+from auth_app.db.connect_db import get_db
+from auth_app.db.connect_redis import get_redis_client
 from auth_app.exeptions.custom import (
     ServiceError,
     UserVerificationError,
 )
 from auth_app.messages.common import msg_creator
 from auth_app.models import UserORM
+from auth_app.repositories.tokens import TokenRepo
+from auth_app.repositories.users import UserRepo
 from auth_app.schemes.users import (
     CreateResponseScheme,
     CreateUserExtendedScheme,
@@ -13,17 +22,28 @@ from auth_app.schemes.users import (
     PatchUserScheme,
     RoleEnum,
 )
-from auth_app.services.service_container import ServiceContainer
+from auth_app.services.ses.clients import get_ses_client
 from auth_app.services.ses.ses_handler import ses_handler
 from auth_app.services.utils.pwd_hashing import hash_password
 from auth_app.services.utils.verification import verify_auth_code
 
 
 class UserService:
-    @staticmethod
+    def __init__(
+        self,
+        user_repo: UserRepo,
+        token_repo: TokenRepo,
+        redis: Redis,
+        ses: AioBaseClient,
+    ) -> None:
+        self.user_repo = user_repo
+        self.token_repo = token_repo
+        self.redis = redis
+        self.ses = ses
+
     async def create_user_record(
+        self,
         user_data: CreateUserExtendedScheme,
-        conn_container: ServiceContainer,
     ) -> UserORM:
         if user_data.role != RoleEnum.USER:
             if (
@@ -31,22 +51,18 @@ class UserService:
                 != jwt_settings.ADMIN_SECRET.get_secret_value()
             ):
                 raise ServiceError("Invalid role or permission code")
-        user_repo = await conn_container.get_user_repo()
-        record = await user_repo.create_user(user_data)
+        record = await self.user_repo.create_user(user_data)
         return record
 
-    @staticmethod
     async def create_init_code_message(
+        self,
         record: UserORM,
-        conn_container: ServiceContainer,
     ) -> CreateResponseScheme:
-        ses = await conn_container.get_ses()
-        redis_client = await conn_container.get_redis()
         email_to = record.email
         await ses_handler.send_confirmation_email(
             email_to=email_to,
-            ses=ses,
-            redis_client=redis_client,
+            ses=self.ses,
+            redis_client=self.redis,
         )
         response = {
             "record": GetUserScheme.model_validate(record),
@@ -54,31 +70,26 @@ class UserService:
         }
         return CreateResponseScheme.model_validate(response)
 
-    @staticmethod
     async def create_verification_code(
+        self,
         payload: dict,
-        conn_container: ServiceContainer,
     ) -> MessageResponseScheme:
-        ses = await conn_container.get_ses()
-        redis_client = await conn_container.get_redis()
         email_to = payload["email"]
         await ses_handler.send_confirmation_email(
             email_to=email_to,
-            ses=ses,
-            redis_client=redis_client,
+            ses=self.ses,
+            redis_client=self.redis,
         )
         response = {
             "message": msg_creator.get_code_message(email_to),
         }
         return MessageResponseScheme.model_validate(response)
 
-    @staticmethod
     async def execute_verification(
+        self,
         verification_code: str,
         payload: dict,
-        conn_container: ServiceContainer,
     ) -> UserORM:
-        repo = await conn_container.get_user_repo()
         email_to = payload["email"]
         check = await verify_auth_code(
             email=email_to,
@@ -91,7 +102,7 @@ class UserService:
             exclude_unset=True,
             exclude_defaults=True,
         )
-        result = await repo.update_user(
+        result = await self.user_repo.update_user(
             user_id=payload["id"],
             patch_dict=patch_dict,
         )
@@ -99,22 +110,22 @@ class UserService:
             raise ServiceError("Record not found")
         return result
 
-    @staticmethod
     async def reset_password(
+        self,
         payload: dict,
-        conn_container: ServiceContainer,
     ) -> dict:
-        repo = await conn_container.get_user_repo()
-        ses = await conn_container.get_ses()
         email_to = payload["email"]
-        data = await ses_handler.reset_password(email_to=email_to, ses=ses)
+        data = await ses_handler.reset_password(
+            email_to=email_to,
+            ses=self.ses,
+        )
         new_pwd_hash = hash_password(data["new_password"])
         patch_model = PatchUserScheme(password_hash=new_pwd_hash)
         patch_dict = patch_model.model_dump(
             exclude_unset=True,
             exclude_defaults=True,
         )
-        record = await repo.update_user(
+        record = await self.user_repo.update_user(
             user_id=payload["id"],
             patch_dict=patch_dict,
         )
@@ -126,4 +137,11 @@ class UserService:
         return response
 
 
-user_service = UserService()
+async def get_user_service(
+    session: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis_client),
+    ses: AioBaseClient = Depends(get_ses_client),
+) -> UserService:
+    user_repo = UserRepo(session)
+    token_repo = TokenRepo(session)
+    return UserService(user_repo, token_repo, redis, ses)

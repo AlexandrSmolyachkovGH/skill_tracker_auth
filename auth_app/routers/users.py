@@ -20,7 +20,10 @@ from auth_app.services.service_container import (
     ServiceContainer,
     get_service_container,
 )
-from auth_app.services.users import user_service
+from auth_app.services.users import (
+    UserService,
+    get_user_service,
+)
 from auth_app.services.utils.token_handler import (
     TokenData,
     get_current_token_payload,
@@ -41,18 +44,16 @@ user_router = APIRouter(
 )
 async def create_user(
     user_data: Annotated[CreateUserExtendedScheme, Body()],
-    conn_container: ServiceContainer = Depends(get_service_container),
+    user_service: UserService = Depends(get_user_service),
 ) -> CreateResponseScheme:
-    await conn_container.begin_transaction()
+    await user_service.user_repo.session.begin()
     record = await user_service.create_user_record(
         user_data=user_data,
-        conn_container=conn_container,
     )
     user = await user_service.create_init_code_message(
         record=record,
-        conn_container=conn_container,
     )
-    await conn_container.commit()
+    await user_service.user_repo.session.commit()
     return CreateResponseScheme.model_validate(user)
 
 
@@ -64,11 +65,10 @@ async def create_user(
 )
 async def get_verification_code(
     token_data: TokenData = Depends(get_current_token_payload),
-    conn_container: ServiceContainer = Depends(get_service_container),
+    user_service: UserService = Depends(get_user_service),
 ) -> MessageResponseScheme:
     result = await user_service.create_verification_code(
         payload=token_data.payload,
-        conn_container=conn_container,
     )
     return result
 
@@ -82,15 +82,14 @@ async def get_verification_code(
 async def verify_record(
     verification_code: str,
     token_data: TokenData = Depends(get_current_token_payload),
-    conn_container: ServiceContainer = Depends(get_service_container),
+    user_service: UserService = Depends(get_user_service),
 ) -> GetUserScheme:
-    await conn_container.begin_transaction()
+    await user_service.user_repo.session.begin()
     user = await user_service.execute_verification(
         verification_code=verification_code,
         payload=token_data.payload,
-        conn_container=conn_container,
     )
-    await conn_container.commit()
+    await user_service.user_repo.session.commit()
     return GetUserScheme.model_validate(user)
 
 
@@ -102,14 +101,13 @@ async def verify_record(
 )
 async def reset_pwd(
     token_data: TokenData = Depends(get_current_token_payload),
-    conn_container: ServiceContainer = Depends(get_service_container),
+    user_service: UserService = Depends(get_user_service),
 ) -> MessageResponseScheme:
-    await conn_container.begin_transaction()
+    await user_service.user_repo.session.begin()
     result = await user_service.reset_password(
         payload=token_data.payload,
-        conn_container=conn_container,
     )
-    await conn_container.commit()
+    await user_service.user_repo.session.commit()
     return MessageResponseScheme.model_validate(result)
 
 
@@ -121,9 +119,9 @@ async def reset_pwd(
 )
 async def get_user(
     token_data: TokenData = Depends(get_current_token_payload),
-    conn_container: ServiceContainer = Depends(get_service_container),
+    user_service: UserService = Depends(get_user_service),
 ) -> GetUserScheme:
-    user_repo = await conn_container.get_user_repo()
+    user_repo = user_service.user_repo
     user = await user_repo.get_user(token_data.payload["user_id"])
 
     if not user:
@@ -143,12 +141,13 @@ async def get_user(
 async def get_users(
     filter_model: Annotated[UserFilterScheme, Query()],
     token_data: TokenData = Depends(get_current_token_payload),
-    conn_container: ServiceContainer = Depends(get_service_container),
+    user_service: UserService = Depends(get_user_service),
 ) -> list[GetUserScheme]:
-    user_repo = await conn_container.get_user_repo()
+    user_repo = user_service.user_repo
     token_handler.verify_admin(token_data.token)
     filter_dict = filter_model.model_dump(
         exclude_unset=True,
+        exclude_defaults=True,
     )
     users = await user_repo.get_users(
         filter_dict=filter_dict,

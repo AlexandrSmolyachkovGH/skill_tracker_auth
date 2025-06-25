@@ -23,11 +23,7 @@ class UserRepo(BaseRepo):
         conditions = []
         for k, v in filter_dict.items():
             column = getattr(UserORM, k, None)
-            if column is not None:
-                if v is not None:
-                    conditions.append(column == v)
-                else:
-                    conditions.append(column.is_(None))
+            conditions.append(column == v)
         return conditions
 
     async def create_user(
