@@ -1,14 +1,10 @@
 from datetime import datetime
 
 from aiobotocore.client import AioBaseClient
-from fastapi import Depends
 from redis.asyncio.client import Redis
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_app.config import jwt_settings
-from auth_app.db.connect_redis import get_redis_client
 from auth_app.exeptions.custom import ServiceError
-from auth_app.middleware.db_session import get_db_from_request
 from auth_app.models import RefreshTokenORM
 from auth_app.repositories.tokens import TokenRepo
 from auth_app.repositories.users import UserRepo
@@ -19,7 +15,6 @@ from auth_app.schemes.tokens import (
     UpdateRefreshScheme,
 )
 from auth_app.schemes.users import AuthUserScheme
-from auth_app.services.ses.clients import get_ses_client
 from auth_app.services.utils.authenticate_user import authenticate_user
 from auth_app.services.utils.token_handler import (
     TokenData,
@@ -48,14 +43,6 @@ class TokenService:
     def token_repo(self) -> TokenRepo:
         return self.__token_repo
 
-    @property
-    def redis(self) -> Redis:
-        return self.__redis
-
-    @property
-    def ses(self) -> AioBaseClient:
-        return self.__ses
-
     async def get_refresh_token(
         self,
         auth_data: AuthUserScheme,
@@ -63,11 +50,11 @@ class TokenService:
         user = await authenticate_user(
             email=auth_data.email,
             password=auth_data.password_hash,
-            user_repo=self.user_repo,
+            user_repo=self.__user_repo,
         )
         if not user:
             raise ServiceError('User not found or Invalid user data')
-        result = await self.token_repo.get_refresh(
+        result = await self.__token_repo.get_refresh(
             user_id=user.id,
         )
         if not result:
@@ -81,11 +68,11 @@ class TokenService:
         user = await authenticate_user(
             email=auth_data.email,
             password=auth_data.password_hash,
-            user_repo=self.user_repo,
+            user_repo=self.__user_repo,
         )
         if not user:
             raise ServiceError('User not found or Invalid user data')
-        token_exists = await self.token_repo.get_refresh(user_id=user.id)
+        token_exists = await self.__token_repo.get_refresh(user_id=user.id)
         if token_exists:
             raise ServiceError(
                 'Token already exists. Get active token or exchange expired.'
@@ -103,7 +90,7 @@ class TokenService:
         if not isinstance(expires_raw, (float, int)):
             raise ValueError("expires must be a number")
 
-        result = await self.token_repo.create_refresh(
+        result = await self.__token_repo.create_refresh(
             create_data=CreateRefreshScheme(
                 user_id=user.id,
                 token=token_data.get('refresh_token'),
@@ -134,7 +121,7 @@ class TokenService:
             raise ServiceError("Invalid payload format")
 
         expires_at = new_payload["expires"]
-        result = await self.token_repo.update_refresh(
+        result = await self.__token_repo.update_refresh(
             old_token=token_data.token,
             update_data=UpdateRefreshScheme(
                 token=new_token,
@@ -150,7 +137,7 @@ class TokenService:
         token_data: TokenData,
     ) -> dict[str, str]:
         token_data = token_handler.verify_refresh(token_data.token)
-        user = await self.user_repo.get_user(token_data.payload["user_id"])
+        user = await self.__user_repo.get_user(token_data.payload["user_id"])
 
         if not user or not user.is_verified or not user.is_active:
             raise ServiceError("User must be verified")
@@ -164,13 +151,3 @@ class TokenService:
             extra_payload=extra_payload,
         )
         return access_token
-
-
-async def get_token_service(
-    session: AsyncSession = Depends(get_db_from_request),
-    redis: Redis = Depends(get_redis_client),
-    ses: AioBaseClient = Depends(get_ses_client),
-) -> TokenService:
-    user_repo = UserRepo(session)
-    token_repo = TokenRepo(session)
-    return TokenService(user_repo, token_repo, redis, ses)

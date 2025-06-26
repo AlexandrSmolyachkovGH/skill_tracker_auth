@@ -17,11 +17,9 @@ class DBSessionMiddleware(BaseHTTPMiddleware):
         async with AsyncSessionLocal() as session:
             request.state.db = session
             try:
-                await session.begin()
-                response = await call_next(request)
-                await session.commit()
+                async with session.begin():
+                    response = await call_next(request)
             except Exception:
-                await session.rollback()
                 raise
             return response
 

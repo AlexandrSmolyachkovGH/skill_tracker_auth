@@ -9,6 +9,7 @@ from fastapi import (
     status,
 )
 
+from auth_app.dependencies import get_user_service
 from auth_app.schemes.users import (
     CreateResponseScheme,
     CreateUserExtendedScheme,
@@ -18,7 +19,6 @@ from auth_app.schemes.users import (
 )
 from auth_app.services.users import (
     UserService,
-    get_user_service,
 )
 from auth_app.services.utils.token_handler import (
     TokenData,

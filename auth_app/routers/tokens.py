@@ -8,6 +8,7 @@ from fastapi import (
     status,
 )
 
+from auth_app.dependencies import get_token_service
 from auth_app.schemes.tokens import (
     GetAccessScheme,
     GetRefreshScheme,
@@ -18,7 +19,6 @@ from auth_app.schemes.users import (
 )
 from auth_app.services.tokens import (
     TokenService,
-    get_token_service,
 )
 from auth_app.services.utils.token_handler import (
     TokenData,
