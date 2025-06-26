@@ -1,6 +1,6 @@
 services:
   db:
-    container_name: 'skills_auth_pg'
+    container_name: "skills_auth_pg"
     image: postgres:16.4
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -13,17 +13,26 @@ services:
     networks:
       - app_network
 
-
   redis:
-    image: redis:7
+    container_name: "skills_auth_redis"
+    image: redis:7.4
+    environment:
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     ports:
-      - "6379:6379"
+      - "6380:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD}
     networks:
       - app_network
+    restart: always
+    volumes:
+      - redis_data:/data
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   app_network:
-    driver: bridge
+    external: true

@@ -1,52 +1,58 @@
-import os
+from pathlib import Path
 
-import dotenv
-from pydantic import BaseModel, SecretStr
-
-dotenv.load_dotenv()
+from pydantic import SecretStr
+from pydantic_settings import BaseSettings
 
 
-class Settings(BaseModel):
-    # POSTGRES
+class BaseConfig(BaseSettings):
+    class Config:
+        env_file = Path(__file__).resolve().parent.parent / ".env"
+        env_file_encoding = "utf-8"
+        extra = "allow"
+
+
+class PostgresSettings(BaseConfig):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: SecretStr
     POSTGRES_PORT: int
     POSTGRES_HOST: str
     POSTGRES_DB: str
-    # REDIS
-    REDIS_HOST: str
-    REDIS_PORT: int
-    REDIS_PASSWORD: SecretStr
-    # PASSWORD HASHING
-    HASHING_ALGORITHM: SecretStr
-    HASHING_DEPRECATED: SecretStr
-    # JWT SECRET KEY
-    KEY: SecretStr
 
     @property
     def postgres_dsn(self) -> str:
         password = self.POSTGRES_PASSWORD.get_secret_value()
-        return f"postgres+asyncpg://" \
+        return f"postgresql+asyncpg://" \
                f"{self.POSTGRES_USER}:{password}" \
                f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}" \
                f"/{self.POSTGRES_DB}"
 
-    @property
-    def sync_postgres_dsn(self) -> str:
-        password = self.POSTGRES_PASSWORD.get_secret_value()
-        return f"postgresql+psycopg2://" \
-               f"{self.POSTGRES_USER}:{password}" \
-               f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}" \
-               f"/{self.POSTGRES_DB}"
+
+class RedisSettings(BaseConfig):
+    REDIS_HOST: str
+    REDIS_PORT: int
+    REDIS_PASSWORD: SecretStr
 
     @property
     def redis_dsn(self) -> str:
         password = self.REDIS_PASSWORD.get_secret_value()
         return f"redis://:{password}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
+
+class JWTSettings(BaseConfig):
+    KEY: SecretStr
+    ALGORITHM: SecretStr
+    REFRESH_LASTING: int
+    ACCESS_LASTING: int
+    ADMIN_SECRET: SecretStr
+
     @property
     def jwt_key(self) -> str:
         return self.KEY.get_secret_value()
+
+
+class PasswordSettings(BaseConfig):
+    HASHING_ALGORITHM: SecretStr
+    HASHING_DEPRECATED: SecretStr
 
     @property
     def hashing_algorithm(self) -> tuple[str, str]:
@@ -56,31 +62,20 @@ class Settings(BaseModel):
         return algorithm_v, deprecated_v
 
 
-POSTGRES_CONFIG = {
-    "POSTGRES_USER": os.getenv("POSTGRES_USER", "pg_user"),
-    "POSTGRES_PASSWORD": os.getenv("POSTGRES_PASSWORD", "pg_pass"),
-    "POSTGRES_DB": os.getenv("POSTGRES_DB", "pg"),
-    "POSTGRES_HOST": os.getenv("POSTGRES_HOST", "db"),
-    "POSTGRES_PORT": int(os.getenv("POSTGRES_PORT", "5432")),
-}
+class AWSSettings(BaseConfig):
+    SERVICES: str
+    AWS_ENDPOINT: str
+    AWS_DEFAULT_REGION: str
+    LOCALSTACK_HOST: str
+    DEBUG: str
+    AWS_ACCESS_KEY_ID: SecretStr
+    AWS_SECRET_ACCESS_KEY: SecretStr
+    RESET_PWD_LENGTH: int
+    VERIFICATION_CODE_LENGTH: int
 
-REDIS_CONFIG = {
-    "REDIS_HOST": os.getenv("REDIS_HOST", "db_redis"),
-    "REDIS_PORT": int(os.getenv("REDIS_PORT", "6379")),
-    "REDIS_PASSWORD": os.getenv("REDIS_PASSWORD", "redis_pass"),
-}
 
-PASSWORD_HASHING = {
-    "HASHING_ALGORITHM": os.getenv("HASHING_ALGORITHM", "bcrypt"),
-    "HASHING_DEPRECATED": os.getenv("HASHING_DEPRECATED", "auto"),
-}
-JWT_KEY = {
-    "KEY": os.getenv("KEY", "simple_key_123"),
-}
-
-settings = Settings(
-    **POSTGRES_CONFIG,
-    **REDIS_CONFIG,
-    **PASSWORD_HASHING,
-    **JWT_KEY,
-)
+pg_settings = PostgresSettings()
+redis_settings = RedisSettings()
+jwt_settings = JWTSettings()
+pwd_settings = PasswordSettings()
+aws_settings = AWSSettings()
