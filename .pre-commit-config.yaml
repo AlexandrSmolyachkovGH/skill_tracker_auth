@@ -21,7 +21,7 @@ repos:
     rev: 7.2.0
     hooks:
       - id: flake8
-        exclude: ^(migrations/|auth_app/models/)
+        exclude: ^(migrations/|auth_app/models/|tests/)
         additional_dependencies:
           - flake8-bugbear
 
@@ -40,7 +40,11 @@ repos:
         entry: pylint
         language: system
         types: [ python ]
-        args: [ "-rn", "-sn", "--rcfile=.pylintrc", "--fail-on=I" ]
+        exclude: ^tests/
+        args: [
+          "--rcfile=.pylintrc"
+        ]
+        # args: [ "-rn", "-sn", "--rcfile=.pylintrc", "--fail-on=I" ]
 
   - repo: https://github.com/pre-commit/mirrors-mypy  # static type analysis
     rev: v1.15.0

@@ -1,12 +1,5 @@
 [MASTER]
-ignore-paths=^\.git.*$,
-             .*/docker/.*$,
-             migrations,
-             .*/migrations/.*$,
-             .*/tests/.*$,
-             .*/settings.*$,
-             .*/base.py,
-             .*/models/.*$,
+ignore=.git,docker,migrations,tests,models
 jobs=1
 
 [MESSAGES CONTROL]
