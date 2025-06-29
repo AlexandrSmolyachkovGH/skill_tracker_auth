@@ -1,4 +1,11 @@
+from unittest.mock import (
+    AsyncMock,
+    Mock,
+)
+
 import pytest
+
+from auth_app.services.users import UserService
 
 
 @pytest.fixture
@@ -36,3 +43,28 @@ def fake_env(monkeypatch):
     monkeypatch.setenv("AWS_ENDPOINT", "http://localhost:4566")
     monkeypatch.setenv("RESET_PWD_LENGTH", "15")
     monkeypatch.setenv("VERIFICATION_CODE_LENGTH", "5")
+
+
+@pytest.fixture
+def mock_dependencies():
+    return {
+        "user_repo": Mock(
+            create_user=AsyncMock(),
+            get_user=AsyncMock(),
+            update_user=AsyncMock(),
+            get_users=AsyncMock(),
+        ),
+        "token_repo": Mock(),
+        "redis": Mock(),
+        "ses": Mock(),
+    }
+
+
+@pytest.fixture
+def user_service(mock_dependencies):
+    return UserService(
+        user_repo=mock_dependencies["user_repo"],
+        token_repo=mock_dependencies["token_repo"],
+        redis=mock_dependencies["redis"],
+        ses=mock_dependencies["ses"],
+    )
