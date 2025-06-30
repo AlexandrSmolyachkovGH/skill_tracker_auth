@@ -54,7 +54,11 @@ def mock_dependencies():
             update_user=AsyncMock(),
             get_users=AsyncMock(),
         ),
-        "token_repo": Mock(),
+        "token_repo": Mock(
+            create_refresh=AsyncMock(),
+            get_refresh=AsyncMock(),
+            update_refresh=AsyncMock(),
+        ),
         "redis": Mock(),
         "ses": Mock(),
     }
