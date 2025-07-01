@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest.mock import AsyncMock
 from uuid import UUID
 
@@ -16,7 +16,6 @@ from auth_app.schemes.users import (
     RoleEnum,
 )
 from auth_app.services.tokens import TokenService
-from auth_app.services.users import UserService
 from auth_app.services.utils.token_handler import TokenData
 
 auth_data = AuthUserScheme(
