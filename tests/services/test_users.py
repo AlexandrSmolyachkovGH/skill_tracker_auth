@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -6,6 +6,7 @@ from auth_app.exeptions.custom import (
     ServiceError,
     UserVerificationError,
 )
+from auth_app.messages.common import msg_creator
 from auth_app.models import UserORM
 from auth_app.schemes.users import (
     CreateResponseScheme,
@@ -15,16 +16,44 @@ from auth_app.schemes.users import (
 )
 
 
+@pytest.fixture
+def send_confirmation_email_mock(
+    mocker,
+) -> MagicMock:
+    confirmation_email_mock = mocker.patch(
+        "auth_app.services.users.ses_handler.send_confirmation_email",
+        new_callable=AsyncMock,
+        return_value={
+            "message": "message"
+        }
+    )
+    return confirmation_email_mock
+
+
+@pytest.fixture
+def ses_reset_pwd_mock(
+    mocker,
+) -> None:
+    mocker.patch(
+        "auth_app.services.users.ses_handler.reset_password",
+        new_callable=AsyncMock,
+        return_value={
+            'message': msg_creator.get_reset_pwd_message(),
+            'new_password': "new_password",
+        }
+    )
+
+
 @pytest.mark.asyncio
 async def test_create_user_record_base(
     mock_user_service,
-    get_user_orm,
+    user_orm_mock,
     valid_user_creation_data,
 ) -> None:
     """
     Test user creation with role USER and valid data
     """
-    mock_user_service.user_repo.create_user.return_value = get_user_orm
+    mock_user_service.user_repo.create_user.return_value = user_orm_mock
     user_orm = await mock_user_service.create_user_record(
         user_data=valid_user_creation_data,
     )
@@ -50,20 +79,20 @@ async def test_create_user_record_admin(
 
 @pytest.mark.asyncio
 async def test_create_init_code_message(
-    get_user_orm,
+    user_orm_mock,
     mock_user_service,
-    mock_ses_handler,
+    send_confirmation_email_mock,
     mock_message_creator,
 ) -> None:
     """
     Test message creation with initialization code and response structure
     """
-    response = await mock_user_service.create_init_code_message(get_user_orm)
-    mock_ses_handler["mock_send_email"].assert_awaited_once()
-    mock_message_creator.assert_called_once_with(get_user_orm.email)
+    response = await mock_user_service.create_init_code_message(user_orm_mock)
+    send_confirmation_email_mock.assert_awaited_once()
+    mock_message_creator.assert_called_once_with(user_orm_mock.email)
 
     assert isinstance(response, CreateResponseScheme)
-    assert response.record.email == get_user_orm.email
+    assert response.record.email == user_orm_mock.email
     assert response.message == "Code sent"
     assert isinstance(response.record, GetUserScheme)
 
@@ -72,7 +101,7 @@ async def test_create_init_code_message(
 async def test_create_verification_code(
     mock_user_service,
     refresh_user_payload,
-    mock_ses_handler,
+    send_confirmation_email_mock,
     mock_message_creator,
 ) -> None:
     """
@@ -81,7 +110,7 @@ async def test_create_verification_code(
     response = await mock_user_service.create_verification_code(
         payload=refresh_user_payload,
     )
-    mock_ses_handler["mock_send_email"].assert_called_once()
+    send_confirmation_email_mock.assert_called_once()
     mock_message_creator.assert_called_once_with(refresh_user_payload["email"])
     assert isinstance(response, MessageResponseScheme)
     assert response.message == "Code sent"
@@ -89,23 +118,15 @@ async def test_create_verification_code(
 
 @pytest.mark.asyncio
 async def test_execute_verification_success(
-    mocker,
     mock_user_service,
-    get_verified_user_orm,
+    verified_user_orm_mock,
     refresh_user_payload,
     verification_code,
-    mock_redis,
 ) -> None:
     """
     Test successful execution of the verification
     """
-    mocker.patch(
-        "auth_app.services.utils.verification.redis_client",
-        new=mock_redis,
-    )
-    mock_user_service.verify_auth_code = AsyncMock(return_value=True)
-    mock_user_service.user_repo.update_user.return_value = get_verified_user_orm
-
+    mock_user_service.user_repo.update_user.return_value = verified_user_orm_mock
     user_data = await mock_user_service.execute_verification(
         verification_code=verification_code,
         payload=refresh_user_payload,
@@ -116,24 +137,17 @@ async def test_execute_verification_success(
 
 @pytest.mark.asyncio
 async def test_execute_verification_failure(
-    mocker,
     mock_user_service,
-    get_verified_user_orm,
+    verified_user_orm_mock,
     refresh_user_payload,
     verification_code,
-    mock_redis,
 ) -> None:
     """
     Test unsuccessful execution of the verification
     """
-    mocker.patch(
-        "auth_app.services.utils.verification.redis_client",
-        new=mock_redis,
-    )
-    mock_redis.get.return_value = "WrongCode"
+    mock_user_service.redis.get.return_value = "WrongCode"
     with pytest.raises(UserVerificationError) as exc_info:
-        mock_user_service.verify_auth_code = AsyncMock(return_value=False)
-        mock_user_service.user_repo.update_user.return_value = get_verified_user_orm
+        mock_user_service.user_repo.update_user.return_value = verified_user_orm_mock
         await mock_user_service.execute_verification(
             verification_code=verification_code,
             payload=refresh_user_payload,
@@ -144,16 +158,15 @@ async def test_execute_verification_failure(
 
 @pytest.mark.asyncio
 async def test_reset_password(
-    mocker,
     mock_user_service,
     refresh_user_payload,
-    get_user_orm,
-    mock_ses_handler,
+    user_orm_mock,
+    ses_reset_pwd_mock,
 ) -> None:
     """
     Test successful execution of the password reset
     """
-    mock_user_service.user_repo.update_user.return_value = get_user_orm
+    mock_user_service.user_repo.update_user.return_value = user_orm_mock
     response = await mock_user_service.reset_password(
         payload=refresh_user_payload,
     )

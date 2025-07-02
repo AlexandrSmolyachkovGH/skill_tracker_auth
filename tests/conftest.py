@@ -13,16 +13,19 @@ from uuid import uuid4
 import pytest
 from redis.asyncio.client import Redis
 
-from auth_app.models import UserORM
+from auth_app.config import jwt_settings
+from auth_app.models import RefreshTokenORM, UserORM
 from auth_app.models.users import UserRole
-from auth_app.schemes.email import EmailPayloadScheme
+from auth_app.schemes.tokens import CreateDataScheme
 from auth_app.schemes.users import (
     CreateUserExtendedScheme,
+    GetUserScheme,
     RoleEnum,
 )
-from auth_app.services.ses.ses_handler import ses_handler
+from auth_app.services.tokens import TokenService
 from auth_app.services.users import UserService
 from auth_app.services.utils.pwd_hashing import hash_password
+from auth_app.services.utils.token_handler import token_handler
 
 
 @pytest.fixture
@@ -77,7 +80,9 @@ def mock_dependencies():
             update_refresh=AsyncMock(),
         ),
         "redis": Mock(),
-        "ses": Mock(),
+        "ses": Mock(
+
+        ),
     }
 
 
@@ -135,6 +140,21 @@ def mock_user_service(
     )
 
 
+@pytest.fixture
+def mock_token_service(
+    mock_user_repo,
+    mock_token_repo,
+    mock_redis,
+    mock_ses
+) -> TokenService:
+    return TokenService(
+        user_repo=mock_user_repo,
+        token_repo=mock_token_repo,
+        redis=mock_redis,
+        ses=mock_ses,
+    )
+
+
 @pytest.fixture(scope="session")
 def get_user_data() -> dict:
     email = "email@example.com"
@@ -152,8 +172,8 @@ def user_id():
     return uuid4()
 
 
-@pytest.fixture
-def get_user_orm(
+@pytest.fixture(scope="session")
+def user_orm_mock(
     get_user_data,
     user_id
 ) -> UserORM:
@@ -168,7 +188,7 @@ def get_user_orm(
 
 
 @pytest.fixture
-def get_verified_user_orm(
+def verified_user_orm_mock(
     get_user_data,
     user_id
 ) -> UserORM:
@@ -183,7 +203,7 @@ def get_verified_user_orm(
 
 
 @pytest.fixture(scope="session")
-def get_token_life_time() -> dict:
+def token_life_time_mock() -> dict:
     active_time = datetime.utcnow() + timedelta(minutes=30)
     inactive_time = datetime.utcnow() - timedelta(minutes=30)
     return {
@@ -217,7 +237,7 @@ def invalid_admin_creation_data(
 
 @pytest.fixture
 def refresh_user_payload(
-    get_token_life_time,
+    token_life_time_mock,
     get_user_data,
     user_id,
 ) -> dict:
@@ -225,39 +245,74 @@ def refresh_user_payload(
         "user_id": str(user_id),
         "email": get_user_data["email"],
         "role": UserRole.USER,
-        "expires": get_token_life_time["active_time"],
+        "expires": token_life_time_mock["active_time"],
         "token_type": "refresh",
     }
 
 
 @pytest.fixture
-def mock_ses_handler(
-    verification_code
-):
-    with patch.object(ses_handler, "generate_email_payload") as mock_gen_payload, \
-        patch.object(ses_handler, "send_email", new_callable=AsyncMock) as mock_send_email, \
-        patch.object(ses_handler, "generate_otp") as mock_generate_otp:
-        # patch.object(ses_handler, "reset_password", new_callable=AsyncMock) as mock_reset_pwd:
-        mock_send_email.return_value = None
-        # mock_reset_pwd.return_value =
-        mock_generate_otp.return_value = verification_code
-        mock_gen_payload.return_value = EmailPayloadScheme(
-            message="Test message",
-            subject="Test subject",
-            source="sender@example.com",
-        )
-
-        yield {
-            "mock_send_email": mock_send_email,
-            "mock_generate_otp": mock_generate_otp,
-            "mock_gen_payload": mock_gen_payload,
-        }
-
-
-@pytest.fixture
-def mock_message_creator(mocker):
+def mock_message_creator(
+    mocker,
+) -> MagicMock:
     mock_msg = mocker.patch(
         "auth_app.services.users.msg_creator.get_code_message",
         return_value="Code sent",
     )
     return mock_msg
+
+
+@pytest.fixture(scope="session")
+def refresh_tokens_mock(
+    user_orm_mock,
+) -> dict:
+    user_refresh_mock = token_handler.generate_refresh(
+        CreateDataScheme(
+            user_id=user_orm_mock.id,
+            email=user_orm_mock.email,
+            role=RoleEnum.USER,
+            admin_secret=None,
+        )
+    )
+    admin_refresh_mock = token_handler.generate_refresh(
+        CreateDataScheme(
+            user_id=user_orm_mock.id,
+            email=user_orm_mock.email,
+            role=RoleEnum.ADMIN,
+            admin_secret=jwt_settings.ADMIN_SECRET.get_secret_value(),
+        )
+    )
+    return {
+        "user_refresh_mock": user_refresh_mock["refresh_token"],
+        "user_payload_mock": user_refresh_mock["payload"],
+        "admin_refresh_mock": admin_refresh_mock["refresh_token"],
+        "admin_payload_mock": admin_refresh_mock["payload"],
+    }
+
+
+@pytest.fixture(scope="session")
+def refresh_orm_mock(
+    refresh_tokens_mock,
+) -> RefreshTokenORM:
+    payload = refresh_tokens_mock["user_payload_mock"]
+
+    refresh_orm = RefreshTokenORM(
+        id=uuid4(),
+        user_id=payload["user_id"],
+        token=refresh_tokens_mock["user_refresh_mock"],
+        expires_at=payload["expires"],
+    )
+    return refresh_orm
+
+
+@pytest.fixture(scope="session")
+def get_user_scheme_mock(
+    user_orm_mock,
+) -> GetUserScheme:
+    return GetUserScheme(
+        email=user_orm_mock.email,
+        password_hash=user_orm_mock.password_hash,
+        id=user_orm_mock.id,
+        role=user_orm_mock.role,
+        is_verified=user_orm_mock.is_verified,
+        is_active=user_orm_mock.is_active,
+    )

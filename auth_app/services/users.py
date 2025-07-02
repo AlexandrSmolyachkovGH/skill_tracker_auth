@@ -6,6 +6,7 @@ from redis.asyncio.client import Redis
 from auth_app.config import jwt_settings
 from auth_app.exeptions.custom import (
     ServiceError,
+    UserActivityError,
     UserVerificationError,
 )
 from auth_app.messages.common import msg_creator
@@ -22,7 +23,6 @@ from auth_app.schemes.users import (
 )
 from auth_app.services.ses.ses_handler import ses_handler
 from auth_app.services.utils.pwd_hashing import hash_password
-from auth_app.services.utils.verification import verify_auth_code
 
 
 class UserService:
@@ -34,13 +34,42 @@ class UserService:
         ses: AioBaseClient,
     ) -> None:
         self.__user_repo = user_repo
-        self.__token_repo = token_repo
+        self.__token_repo = token_repo  # pylint: disable=W0238
         self.__redis = redis
         self.__ses = ses
 
     @property
     def user_repo(self) -> UserRepo:
         return self.__user_repo
+
+    @property
+    def redis(self) -> Redis:
+        return self.__redis
+
+    @property
+    def ses(self) -> AioBaseClient:
+        return self.__ses
+
+    async def verify_auth_code(
+        self,
+        email: str,
+        code: str,
+    ) -> bool:
+        """
+        Compare the transmitted one-time password with the cached one
+        """
+        cached_code = await self.__redis.get(f"otp:{email}")
+        print(f"cached_code: {cached_code}, otp: {code}")
+        return cached_code == code
+
+    async def check_auth_statuses(
+        self,
+        user_data: GetUserScheme,
+    ) -> None:
+        if not user_data.is_verified:
+            raise UserVerificationError()
+        if not user_data.is_active:
+            raise UserActivityError
 
     async def create_user_record(
         self,
@@ -92,7 +121,7 @@ class UserService:
         payload: dict,
     ) -> UserORM:
         email_to = payload["email"]
-        check = await verify_auth_code(
+        check = await self.verify_auth_code(
             email=email_to,
             code=verification_code,
         )

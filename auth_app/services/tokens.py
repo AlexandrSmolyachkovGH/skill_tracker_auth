@@ -32,8 +32,8 @@ class TokenService:
     ) -> None:
         self.__user_repo = user_repo
         self.__token_repo = token_repo
-        self.__redis = redis
-        self.__ses = ses
+        self.__redis = redis  # pylint: disable=W0238
+        self.__ses = ses  # pylint: disable=W0238
 
     @property
     def user_repo(self) -> UserRepo:
@@ -53,12 +53,12 @@ class TokenService:
             user_repo=self.__user_repo,
         )
         if not user:
-            raise ServiceError('User not found or Invalid user data')
+            raise ServiceError("User not found or Invalid user data")
         result = await self.__token_repo.get_refresh(
             user_id=user.id,
         )
         if not result:
-            raise ServiceError('Token not found')
+            raise ServiceError("Token not found")
         return result
 
     async def create_refresh_token(
