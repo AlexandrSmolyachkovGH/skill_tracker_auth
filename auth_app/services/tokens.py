@@ -1,8 +1,5 @@
 from datetime import datetime
 
-from aiobotocore.client import AioBaseClient
-from redis.asyncio.client import Redis
-
 from auth_app.config import jwt_settings
 from auth_app.exeptions.custom import ServiceError
 from auth_app.models import RefreshTokenORM
@@ -27,13 +24,9 @@ class TokenService:
         self,
         user_repo: UserRepo,
         token_repo: TokenRepo,
-        redis: Redis,
-        ses: AioBaseClient,
     ) -> None:
         self.__user_repo = user_repo
         self.__token_repo = token_repo
-        self.__redis = redis
-        self.__ses = ses
 
     @property
     def user_repo(self) -> UserRepo:
@@ -53,12 +46,12 @@ class TokenService:
             user_repo=self.__user_repo,
         )
         if not user:
-            raise ServiceError('User not found or Invalid user data')
+            raise ServiceError("User not found or Invalid user data")
         result = await self.__token_repo.get_refresh(
             user_id=user.id,
         )
         if not result:
-            raise ServiceError('Token not found')
+            raise ServiceError("Token not found")
         return result
 
     async def create_refresh_token(
