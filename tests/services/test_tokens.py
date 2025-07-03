@@ -98,7 +98,6 @@ async def test_get_refresh_token(
     """
     Test refresh token retrieval and authentication call
     """
-
     mock_token_service.token_repo.get_refresh.return_value = refresh_orm_mock
     res = await mock_token_service.get_refresh_token(auth_user_data_mock)
 
@@ -117,7 +116,6 @@ async def test_create_refresh_token(
     """
     Test successful creation and validation of a refresh token
     """
-
     mock_token_service.token_repo.get_refresh.return_value = None
     mock_token_service.token_repo.create_refresh.return_value = refresh_orm_mock
     role_auth_data = RoleDataScheme(
@@ -139,7 +137,6 @@ async def test_create_refresh_token_failure(
     """
     Test unsuccessful creation of a refresh token
     """
-
     with pytest.raises(ServiceError) as user_not_found:
         role_auth_data = RoleDataScheme(
             **auth_user_data_mock.model_dump(),
@@ -162,6 +159,7 @@ async def test_exchange_refresh_token(
     res = await mock_token_service.exchange_refresh_token(
         token_data=token_data,
     )
+
     requre_expired_patch.assert_called_once()
     assert isinstance(res, RefreshTokenORM)
 
@@ -179,6 +177,7 @@ async def test_create_access_token(
     res = await mock_token_service.create_access_token(
         token_data=token_data,
     )
+
     assert isinstance(res, dict)
 
 
@@ -196,4 +195,5 @@ async def test_create_access_token_failure(
         res = await mock_token_service.create_access_token(
             token_data=token_data,
         )
+
     assert "User must be verified" in str(verification_error.value)

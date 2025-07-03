@@ -74,6 +74,7 @@ async def test_create_user_record_admin(
         await mock_user_service.create_user_record(
             user_data=invalid_admin_creation_data,
         )
+
     assert "Invalid role or permission code" in str(exc_info.value)
 
 
@@ -88,9 +89,9 @@ async def test_create_init_code_message(
     Test message creation with initialization code and response structure
     """
     response = await mock_user_service.create_init_code_message(user_orm_mock)
+
     send_confirmation_email_mock.assert_awaited_once()
     mock_message_creator.assert_called_once_with(user_orm_mock.email)
-
     assert isinstance(response, CreateResponseScheme)
     assert response.record.email == user_orm_mock.email
     assert response.message == "Code sent"
@@ -110,6 +111,7 @@ async def test_create_verification_code(
     response = await mock_user_service.create_verification_code(
         payload=refresh_user_payload,
     )
+
     send_confirmation_email_mock.assert_called_once()
     mock_message_creator.assert_called_once_with(refresh_user_payload["email"])
     assert isinstance(response, MessageResponseScheme)
@@ -131,6 +133,7 @@ async def test_execute_verification_success(
         verification_code=verification_code,
         payload=refresh_user_payload,
     )
+
     assert isinstance(user_data, UserORM)
     assert user_data.is_verified
 
@@ -170,5 +173,6 @@ async def test_reset_password(
     response = await mock_user_service.reset_password(
         payload=refresh_user_payload,
     )
+
     assert isinstance(response, dict)
     assert response["message"] == "Password was changed. Check your email to get it."

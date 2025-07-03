@@ -2,6 +2,10 @@ from auth_app.messages.common import msg_creator
 
 
 def test_messages() -> None:
+    """
+    Test of expected answers of the msg_creator
+    """
+
     assert msg_creator.get_code_message("123") == f"Your verification code was sent to 123."
     assert msg_creator.get_reset_pwd_message() == "Password was changed. Check your email to get it."
     assert msg_creator.get_root_description() == "Auth REST API for the Skill Tracker Application"
