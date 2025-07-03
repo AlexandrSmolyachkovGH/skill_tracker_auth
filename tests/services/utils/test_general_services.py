@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 import pytest
 
 from auth_app.schemes.users import (
@@ -13,7 +15,7 @@ from auth_app.services.utils.pwd_hashing import (
 
 
 def test_hash_password(
-    get_user_data,
+    get_user_data: dict,
 ) -> None:
     """
     Test that a password is hashed correctly and can be verified
@@ -28,7 +30,7 @@ def test_hash_password(
 
 
 def test_verify_password(
-    get_user_data,
+    get_user_data: dict,
 ) -> None:
     """
     Test successful password verification with correct password
@@ -41,9 +43,9 @@ def test_verify_password(
 
 @pytest.mark.asyncio
 async def test_authenticate_user(
-    get_user_data,
-    get_user_scheme_mock,
-    mock_user_repo,
+    get_user_data: dict,
+    get_user_scheme_mock: GetUserScheme,
+    mock_user_repo: MagicMock,
 ) -> None:
     """
     Test successful authentication with valid user data
@@ -52,7 +54,7 @@ async def test_authenticate_user(
     result = await authenticate_user(
         email=get_user_data["email"],
         password=get_user_data["password"],
-        user_repo=mock_user_repo
+        user_repo=mock_user_repo,
     )
 
     mock_user_repo.get_users.assert_called_once()

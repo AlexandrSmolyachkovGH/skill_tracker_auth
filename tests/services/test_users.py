@@ -1,6 +1,11 @@
-from unittest.mock import AsyncMock, MagicMock
+from typing import cast
+from unittest.mock import (
+    AsyncMock,
+    MagicMock,
+)
 
 import pytest
+from pytest_mock import MockerFixture
 
 from auth_app.exeptions.custom import (
     ServiceError,
@@ -10,29 +15,29 @@ from auth_app.messages.common import msg_creator
 from auth_app.models import UserORM
 from auth_app.schemes.users import (
     CreateResponseScheme,
+    CreateUserExtendedScheme,
     GetUserScheme,
     MessageResponseScheme,
     RoleEnum,
 )
+from auth_app.services.users import UserService
 
 
 @pytest.fixture
 def send_confirmation_email_mock(
-    mocker,
+    mocker: MockerFixture,
 ) -> MagicMock:
     confirmation_email_mock = mocker.patch(
         "auth_app.services.users.ses_handler.send_confirmation_email",
         new_callable=AsyncMock,
-        return_value={
-            "message": "message"
-        }
+        return_value={"message": "message"},
     )
     return confirmation_email_mock
 
 
 @pytest.fixture
 def ses_reset_pwd_mock(
-    mocker,
+    mocker: MockerFixture,
 ) -> None:
     mocker.patch(
         "auth_app.services.users.ses_handler.reset_password",
@@ -40,20 +45,22 @@ def ses_reset_pwd_mock(
         return_value={
             'message': msg_creator.get_reset_pwd_message(),
             'new_password': "new_password",
-        }
+        },
     )
 
 
 @pytest.mark.asyncio
 async def test_create_user_record_base(
-    mock_user_service,
-    user_orm_mock,
-    valid_user_creation_data,
+    mock_user_service: UserService,
+    user_orm_mock: UserORM,
+    valid_user_creation_data: CreateUserExtendedScheme,
 ) -> None:
     """
     Test user creation with role USER and valid data
     """
-    mock_user_service.user_repo.create_user.return_value = user_orm_mock
+    mock_user_service.user_repo.create_user = AsyncMock(  # type: ignore[method-assign]
+        return_value=user_orm_mock,
+    )
     user_orm = await mock_user_service.create_user_record(
         user_data=valid_user_creation_data,
     )
@@ -64,8 +71,8 @@ async def test_create_user_record_base(
 
 @pytest.mark.asyncio
 async def test_create_user_record_admin(
-    mock_user_service,
-    invalid_admin_creation_data,
+    mock_user_service: UserService,
+    invalid_admin_creation_data: CreateUserExtendedScheme,
 ) -> None:
     """
     Test user creation with an invalid admin code for the ADMIN role
@@ -80,10 +87,10 @@ async def test_create_user_record_admin(
 
 @pytest.mark.asyncio
 async def test_create_init_code_message(
-    user_orm_mock,
-    mock_user_service,
-    send_confirmation_email_mock,
-    mock_message_creator,
+    user_orm_mock: UserORM,
+    mock_user_service: UserService,
+    send_confirmation_email_mock: MagicMock,
+    mock_message_creator: MagicMock,
 ) -> None:
     """
     Test message creation with initialization code and response structure
@@ -100,10 +107,10 @@ async def test_create_init_code_message(
 
 @pytest.mark.asyncio
 async def test_create_verification_code(
-    mock_user_service,
-    refresh_user_payload,
-    send_confirmation_email_mock,
-    mock_message_creator,
+    mock_user_service: UserService,
+    refresh_user_payload: dict,
+    send_confirmation_email_mock: MagicMock,
+    mock_message_creator: MagicMock,
 ) -> None:
     """
     Test verification code creation and response structure
@@ -120,15 +127,17 @@ async def test_create_verification_code(
 
 @pytest.mark.asyncio
 async def test_execute_verification_success(
-    mock_user_service,
-    verified_user_orm_mock,
-    refresh_user_payload,
-    verification_code,
+    mock_user_service: UserService,
+    verified_user_orm_mock: UserORM,
+    refresh_user_payload: dict,
+    verification_code: str,
 ) -> None:
     """
     Test successful execution of the verification
     """
-    mock_user_service.user_repo.update_user.return_value = verified_user_orm_mock
+    mock_user_service.user_repo.update_user = AsyncMock(  # type: ignore[method-assign]
+        return_value=verified_user_orm_mock,
+    )
     user_data = await mock_user_service.execute_verification(
         verification_code=verification_code,
         payload=refresh_user_payload,
@@ -140,39 +149,56 @@ async def test_execute_verification_success(
 
 @pytest.mark.asyncio
 async def test_execute_verification_failure(
-    mock_user_service,
-    verified_user_orm_mock,
-    refresh_user_payload,
-    verification_code,
+    mock_user_service: UserService,
+    verified_user_orm_mock: UserORM,
+    refresh_user_payload: dict,
+    verification_code: str,
 ) -> None:
     """
     Test unsuccessful execution of the verification
     """
+    mock_user_service.redis.get = cast(
+        AsyncMock,
+        mock_user_service.redis.get,
+    )
     mock_user_service.redis.get.return_value = "WrongCode"
     with pytest.raises(UserVerificationError) as exc_info:
-        mock_user_service.user_repo.update_user.return_value = verified_user_orm_mock
+        mock_user_service.user_repo.update_user = cast(  # type: ignore[method-assign]
+            AsyncMock,
+            mock_user_service.user_repo.update_user,
+        )
+        mock_user_service.user_repo.update_user.return_value = (
+            verified_user_orm_mock
+        )
         await mock_user_service.execute_verification(
             verification_code=verification_code,
             payload=refresh_user_payload,
         )
 
-    assert "The user is not verified or verification failed" in str(exc_info.value)
+    assert "The user is not verified or verification failed" in str(
+        exc_info.value
+    )
 
 
 @pytest.mark.asyncio
 async def test_reset_password(
-    mock_user_service,
-    refresh_user_payload,
-    user_orm_mock,
-    ses_reset_pwd_mock,
+    mock_user_service: UserService,
+    refresh_user_payload: dict,
+    user_orm_mock: UserORM,
+    ses_reset_pwd_mock: None,
 ) -> None:
     """
     Test successful execution of the password reset
     """
-    mock_user_service.user_repo.update_user.return_value = user_orm_mock
+    mock_user_service.user_repo.update_user = AsyncMock(  # type: ignore[method-assign]
+        return_value=user_orm_mock,
+    )
     response = await mock_user_service.reset_password(
         payload=refresh_user_payload,
     )
 
     assert isinstance(response, dict)
-    assert response["message"] == "Password was changed. Check your email to get it."
+    assert (
+        response["message"]
+        == "Password was changed. Check your email to get it."
+    )

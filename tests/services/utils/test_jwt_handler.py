@@ -5,7 +5,7 @@ jwt_handler = JWTHandler()
 
 
 def test_get_refresh_response(
-    refresh_tokens_mock,
+    refresh_tokens_mock: dict,
 ) -> None:
     """
     Test that get_refresh_response returns correct response
@@ -23,7 +23,7 @@ def test_get_refresh_response(
 
 
 def test_get_access_response(
-    access_token_mock,
+    access_token_mock: dict,
 ) -> None:
     """
     Test that get_access_response returns correct response
@@ -37,7 +37,7 @@ def test_get_access_response(
 
 
 def test_generate_refresh(
-    create_user_data,
+    create_user_data: CreateDataScheme,
 ) -> None:
     """
     Test creation of refresh token
@@ -53,7 +53,7 @@ def test_generate_refresh(
 
 
 def test_generate_access(
-    refresh_tokens_mock,
+    refresh_tokens_mock: dict,
 ) -> None:
     """
     Test creation of access token
@@ -68,7 +68,7 @@ def test_generate_access(
 
 
 def test_base_decode(
-    refresh_tokens_mock,
+    refresh_tokens_mock: dict,
 ) -> None:
     """
     Test successful decoding of the token

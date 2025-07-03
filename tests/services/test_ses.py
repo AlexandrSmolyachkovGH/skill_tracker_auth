@@ -1,9 +1,11 @@
 from unittest.mock import (
     AsyncMock,
+    MagicMock,
 )
 
 import pytest
 from aiobotocore.client import AioBaseClient
+from pytest_mock import MockerFixture
 
 from auth_app.config import aws_settings
 from auth_app.schemes.email import EmailPayloadScheme
@@ -20,7 +22,7 @@ def generate_email_payload_data() -> dict:
 
 @pytest.fixture
 def send_email_patch(
-    mocker,
+    mocker: MockerFixture,
 ) -> AsyncMock:
     send_email = mocker.patch(
         "auth_app.services.ses.ses_handler.ses_handler.send_email",
@@ -31,7 +33,7 @@ def send_email_patch(
 
 
 def test_generate_email_payload(
-    generate_email_payload_data,
+    generate_email_payload_data: dict,
 ) -> None:
     """
     Test of valid email payload creation
@@ -41,8 +43,8 @@ def test_generate_email_payload(
     )
 
     assert isinstance(email_payload, EmailPayloadScheme)
-    assert email_payload.message == "Test message"
-    assert email_payload.subject == "Test subject"
+    assert email_payload.message == generate_email_payload_data["message"]
+    assert email_payload.subject == generate_email_payload_data["subject"]
 
 
 def test_generate_verification_code() -> None:
@@ -57,8 +59,8 @@ def test_generate_verification_code() -> None:
 
 @pytest.mark.asyncio
 async def test_reset_password(
-    send_email_patch,
-    get_user_data,
+    send_email_patch: AsyncMock,
+    get_user_data: dict,
 ) -> None:
     """
     Test of valid password reset
@@ -77,9 +79,9 @@ async def test_reset_password(
 
 @pytest.mark.asyncio
 async def test_send_confirmation_email(
-    get_user_data,
-    mock_redis,
-    send_email_patch,
+    get_user_data: dict,
+    mock_redis: MagicMock,
+    send_email_patch: AsyncMock,
 ) -> None:
     """
     Test of successful sending of the confirmation email

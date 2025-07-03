@@ -1,22 +1,29 @@
+from typing import cast
 from unittest.mock import (
     AsyncMock,
     MagicMock,
 )
 
 import pytest
+from pytest_mock import MockerFixture
 
 from auth_app.exeptions.custom import ServiceError
-from auth_app.models import RefreshTokenORM
+from auth_app.models import (
+    RefreshTokenORM,
+    UserORM,
+)
 from auth_app.schemes.tokens import RoleDataScheme
 from auth_app.schemes.users import (
     AuthUserScheme,
+    GetUserScheme,
 )
+from auth_app.services.tokens import TokenService
 from auth_app.services.utils.token_handler import TokenData
 
 
 @pytest.fixture
 def auth_user_data_mock(
-    user_orm_mock,
+    user_orm_mock: UserORM,
 ) -> AuthUserScheme:
     return AuthUserScheme(
         email=user_orm_mock.email,
@@ -26,34 +33,34 @@ def auth_user_data_mock(
 
 @pytest.fixture
 def generate_refresh_patch(
-    mocker,
-    refresh_tokens_mock,
+    mocker: MockerFixture,
+    refresh_tokens_mock: dict,
 ) -> MagicMock:
     refresh_mock = mocker.patch(
         "auth_app.services.tokens.token_handler.generate_refresh",
         return_value={
             "refresh_token": refresh_tokens_mock["user_refresh_mock"],
             "payload": refresh_tokens_mock["user_payload_mock"],
-        }
+        },
     )
     return refresh_mock
 
 
 @pytest.fixture
 def token_data(
-    refresh_tokens_mock,
+    refresh_tokens_mock: dict,
 ) -> TokenData:
     token_data = TokenData(
         token=refresh_tokens_mock["user_refresh_mock"],
-        payload=refresh_tokens_mock["user_payload_mock"]
+        payload=refresh_tokens_mock["user_payload_mock"],
     )
     return token_data
 
 
 @pytest.fixture
 def requre_expired_patch(
-    mocker,
-    token_data,
+    mocker: MockerFixture,
+    token_data: TokenData,
 ) -> MagicMock:
     requre_expired = mocker.patch(
         "auth_app.services.tokens.token_handler.requre_expired",
@@ -64,8 +71,8 @@ def requre_expired_patch(
 
 @pytest.fixture
 def authenticate_user_patch(
-    mocker,
-    get_user_scheme_mock
+    mocker: MockerFixture,
+    get_user_scheme_mock: GetUserScheme,
 ) -> AsyncMock:
     auth_mock = mocker.patch(
         "auth_app.services.tokens.authenticate_user",
@@ -77,7 +84,7 @@ def authenticate_user_patch(
 
 @pytest.fixture
 def authenticate_user_failure_patch(
-    mocker,
+    mocker: MockerFixture,
 ) -> AsyncMock:
     auth_mock = mocker.patch(
         "auth_app.services.tokens.authenticate_user",
@@ -89,15 +96,18 @@ def authenticate_user_failure_patch(
 
 @pytest.mark.asyncio
 async def test_get_refresh_token(
-    auth_user_data_mock,
-    authenticate_user_patch,
-    refresh_orm_mock,
-    mock_token_service,
-
+    auth_user_data_mock: AuthUserScheme,
+    authenticate_user_patch: AsyncMock,
+    refresh_orm_mock: RefreshTokenORM,
+    mock_token_service: TokenService,
 ) -> None:
     """
     Test refresh token retrieval and authentication call
     """
+    mock_token_service.token_repo.get_refresh = cast(  # type: ignore[method-assign]
+        AsyncMock,
+        mock_token_service.token_repo.get_refresh,
+    )
     mock_token_service.token_repo.get_refresh.return_value = refresh_orm_mock
     res = await mock_token_service.get_refresh_token(auth_user_data_mock)
 
@@ -107,17 +117,27 @@ async def test_get_refresh_token(
 
 @pytest.mark.asyncio
 async def test_create_refresh_token(
-    auth_user_data_mock,
-    authenticate_user_patch,
-    generate_refresh_patch,
-    mock_token_service,
-    refresh_orm_mock,
+    auth_user_data_mock: AuthUserScheme,
+    authenticate_user_patch: AsyncMock,
+    generate_refresh_patch: MagicMock,
+    mock_token_service: TokenService,
+    refresh_orm_mock: dict,
 ) -> None:
     """
     Test successful creation and validation of a refresh token
     """
+    mock_token_service.token_repo.get_refresh = cast(  # type: ignore[method-assign]
+        AsyncMock,
+        mock_token_service.token_repo.get_refresh,
+    )
     mock_token_service.token_repo.get_refresh.return_value = None
-    mock_token_service.token_repo.create_refresh.return_value = refresh_orm_mock
+    mock_token_service.token_repo.create_refresh = cast(  # type: ignore[method-assign]
+        AsyncMock,
+        mock_token_service.token_repo.create_refresh,
+    )
+    mock_token_service.token_repo.create_refresh.return_value = (
+        refresh_orm_mock
+    )
     role_auth_data = RoleDataScheme(
         **auth_user_data_mock.model_dump(),
     )
@@ -130,9 +150,9 @@ async def test_create_refresh_token(
 
 @pytest.mark.asyncio
 async def test_create_refresh_token_failure(
-    auth_user_data_mock,
-    authenticate_user_failure_patch,
-    mock_token_service,
+    auth_user_data_mock: AuthUserScheme,
+    authenticate_user_failure_patch: AsyncMock,
+    mock_token_service: TokenService,
 ) -> None:
     """
     Test unsuccessful creation of a refresh token
@@ -147,15 +167,21 @@ async def test_create_refresh_token_failure(
 
 @pytest.mark.asyncio
 async def test_exchange_refresh_token(
-    mock_token_service,
-    refresh_orm_mock,
-    requre_expired_patch,
-    token_data,
+    mock_token_service: TokenService,
+    refresh_orm_mock: dict,
+    requre_expired_patch: MagicMock,
+    token_data: TokenData,
 ) -> None:
     """
     Test successful exchange of a refresh token
     """
-    mock_token_service.token_repo.update_refresh.return_value = refresh_orm_mock
+    mock_token_service.token_repo.update_refresh = cast(  # type: ignore[method-assign]
+        AsyncMock,
+        mock_token_service.token_repo.update_refresh,
+    )
+    mock_token_service.token_repo.update_refresh.return_value = (
+        refresh_orm_mock
+    )
     res = await mock_token_service.exchange_refresh_token(
         token_data=token_data,
     )
@@ -166,13 +192,17 @@ async def test_exchange_refresh_token(
 
 @pytest.mark.asyncio
 async def test_create_access_token(
-    mock_token_service,
-    verified_user_orm_mock,
-    token_data,
+    mock_token_service: TokenService,
+    verified_user_orm_mock: UserORM,
+    token_data: TokenData,
 ) -> None:
     """
     Test successful creation of an access token
     """
+    mock_token_service.user_repo.get_user = cast(  # type: ignore[method-assign]
+        AsyncMock,
+        mock_token_service.user_repo.get_user,
+    )
     mock_token_service.user_repo.get_user.return_value = verified_user_orm_mock
     res = await mock_token_service.create_access_token(
         token_data=token_data,
@@ -183,16 +213,20 @@ async def test_create_access_token(
 
 @pytest.mark.asyncio
 async def test_create_access_token_failure(
-    mock_token_service,
-    user_orm_mock,
-    token_data,
+    mock_token_service: TokenService,
+    user_orm_mock: UserORM,
+    token_data: TokenData,
 ) -> None:
     """
     Test unsuccessful creation of an access token
     """
     with pytest.raises(ServiceError) as verification_error:
+        mock_token_service.user_repo.get_user = cast(  # type: ignore[method-assign]
+            AsyncMock,
+            mock_token_service.user_repo.get_user,
+        )
         mock_token_service.user_repo.get_user.return_value = user_orm_mock
-        res = await mock_token_service.create_access_token(
+        await mock_token_service.create_access_token(
             token_data=token_data,
         )
 

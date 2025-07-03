@@ -13,7 +13,9 @@ from uuid import (
 )
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 from aiobotocore.client import AioBaseClient
+from pytest_mock import MockerFixture
 from redis.asyncio.client import Redis
 
 from auth_app.config import jwt_settings
@@ -35,7 +37,9 @@ from auth_app.services.utils.token_handler import token_handler
 
 
 @pytest.fixture
-def fake_env(monkeypatch):
+def fake_env(
+    monkeypatch: MonkeyPatch,
+) -> None:
     # POSTGRES DB
     monkeypatch.setenv("POSTGRES_USER", "test_user")
     monkeypatch.setenv("POSTGRES_PASSWORD", "test_pwd")
@@ -72,27 +76,6 @@ def fake_env(monkeypatch):
 
 
 @pytest.fixture
-def mock_dependencies() -> dict:
-    return {
-        "user_repo": Mock(
-            create_user=AsyncMock(),
-            get_user=AsyncMock(),
-            update_user=AsyncMock(),
-            get_users=AsyncMock(),
-        ),
-        "token_repo": Mock(
-            create_refresh=AsyncMock(),
-            get_refresh=AsyncMock(),
-            update_refresh=AsyncMock(),
-        ),
-        "redis": Mock(),
-        "ses": Mock(
-
-        ),
-    }
-
-
-@pytest.fixture
 def mock_user_repo() -> MagicMock:
     return MagicMock(
         create_user=AsyncMock(),
@@ -118,7 +101,7 @@ def verification_code() -> str:
 
 @pytest.fixture
 def mock_redis(
-    verification_code,
+    verification_code: str,
 ) -> MagicMock:
     mock = MagicMock(spec=Redis)
     mock.set = AsyncMock(return_value=None)
@@ -133,10 +116,10 @@ def mock_ses() -> MagicMock:
 
 @pytest.fixture
 def mock_user_service(
-    mock_user_repo,
-    mock_token_repo,
-    mock_redis,
-    mock_ses,
+    mock_user_repo: MagicMock,
+    mock_token_repo: MagicMock,
+    mock_redis: MagicMock,
+    mock_ses: MagicMock,
 ) -> UserService:
     return UserService(
         user_repo=mock_user_repo,
@@ -148,16 +131,12 @@ def mock_user_service(
 
 @pytest.fixture
 def mock_token_service(
-    mock_user_repo,
-    mock_token_repo,
-    mock_redis,
-    mock_ses,
+    mock_user_repo: MagicMock,
+    mock_token_repo: MagicMock,
 ) -> TokenService:
     return TokenService(
         user_repo=mock_user_repo,
         token_repo=mock_token_repo,
-        redis=mock_redis,
-        ses=mock_ses,
     )
 
 
@@ -180,8 +159,8 @@ def user_id() -> UUID:
 
 @pytest.fixture(scope="session")
 def user_orm_mock(
-    get_user_data,
-    user_id
+    get_user_data: UserORM,
+    user_id: UUID,
 ) -> UserORM:
     return UserORM(
         id=user_id,
@@ -195,8 +174,8 @@ def user_orm_mock(
 
 @pytest.fixture
 def verified_user_orm_mock(
-    get_user_data,
-    user_id
+    get_user_data: UserORM,
+    user_id: UUID,
 ) -> UserORM:
     return UserORM(
         id=user_id,
@@ -220,7 +199,7 @@ def token_life_time_mock() -> dict:
 
 @pytest.fixture
 def valid_user_creation_data(
-    get_user_data,
+    get_user_data: UserORM,
 ) -> CreateUserExtendedScheme:
     return CreateUserExtendedScheme(
         email=get_user_data["email"],
@@ -231,7 +210,7 @@ def valid_user_creation_data(
 
 @pytest.fixture
 def invalid_admin_creation_data(
-    get_user_data,
+    get_user_data: UserORM,
 ) -> CreateUserExtendedScheme:
     return CreateUserExtendedScheme(
         email=get_user_data["email"],
@@ -243,9 +222,9 @@ def invalid_admin_creation_data(
 
 @pytest.fixture
 def refresh_user_payload(
-    token_life_time_mock,
-    get_user_data,
-    user_id,
+    token_life_time_mock: dict,
+    get_user_data: UserORM,
+    user_id: UUID,
 ) -> dict:
     return {
         "user_id": str(user_id),
@@ -258,7 +237,7 @@ def refresh_user_payload(
 
 @pytest.fixture
 def mock_message_creator(
-    mocker,
+    mocker: MockerFixture,
 ) -> MagicMock:
     mock_msg = mocker.patch(
         "auth_app.services.users.msg_creator.get_code_message",
@@ -298,7 +277,6 @@ def refresh_tokens_mock(
 ) -> dict:
     user_refresh_mock = token_handler.generate_refresh(
         create_user_data,
-
     )
     admin_refresh_mock = token_handler.generate_refresh(
         create_admin_data,
@@ -313,7 +291,7 @@ def refresh_tokens_mock(
 
 @pytest.fixture(scope="session")
 def access_token_mock(
-    refresh_tokens_mock,
+    refresh_tokens_mock: dict,
 ) -> dict:
     access_token = token_handler.generate_access(
         refresh_token=refresh_tokens_mock["user_refresh_mock"],
@@ -324,7 +302,7 @@ def access_token_mock(
 
 @pytest.fixture(scope="session")
 def refresh_orm_mock(
-    refresh_tokens_mock,
+    refresh_tokens_mock: dict,
 ) -> RefreshTokenORM:
     payload = refresh_tokens_mock["user_payload_mock"]
 
@@ -339,7 +317,7 @@ def refresh_orm_mock(
 
 @pytest.fixture(scope="session")
 def get_user_scheme_mock(
-    user_orm_mock,
+    user_orm_mock: UserORM,
 ) -> GetUserScheme:
     return GetUserScheme(
         email=user_orm_mock.email,
