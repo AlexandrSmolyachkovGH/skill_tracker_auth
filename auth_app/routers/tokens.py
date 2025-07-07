@@ -13,6 +13,7 @@ from auth_app.schemes.tokens import (
     GetAccessScheme,
     GetRefreshScheme,
     RoleDataScheme,
+    VerifyAccessScheme,
 )
 from auth_app.schemes.users import (
     AuthUserScheme,
@@ -88,7 +89,7 @@ async def exchange_refresh(
 @token_router.post(
     path='/access/create',
     response_model=GetAccessScheme,
-    description='Generate access token for the user',
+    description='Generate new access token for the user',
     status_code=status.HTTP_201_CREATED,
 )
 async def create_access(
@@ -99,3 +100,19 @@ async def create_access(
         token_data=token_data,
     )
     return GetAccessScheme(message=token)
+
+
+@token_router.post(
+    path='/access/verify/',
+    response_model=VerifyAccessScheme,
+    description='Verify the access token',
+    status_code=status.HTTP_200_OK,
+)
+async def verify_access(
+    access_token: Annotated[str, Body()],
+    token_service: TokenService = Depends(get_token_service),
+) -> VerifyAccessScheme:
+    await token_service.verify_access_token(
+        access_token=access_token,
+    )
+    return VerifyAccessScheme()

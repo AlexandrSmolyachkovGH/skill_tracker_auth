@@ -24,9 +24,7 @@ async def get_user_service(
 
 async def get_token_service(
     session: AsyncSession = Depends(get_db_from_request),
-    redis: Redis = Depends(get_redis_client),
-    ses: AioBaseClient = Depends(get_ses_client),
 ) -> TokenService:
     user_repo = UserRepo(session)
     token_repo = TokenRepo(session)
-    return TokenService(user_repo, token_repo, redis, ses)
+    return TokenService(user_repo, token_repo)

@@ -7,7 +7,10 @@ from unittest.mock import (
 import pytest
 from pytest_mock import MockerFixture
 
-from auth_app.exeptions.custom import ServiceError
+from auth_app.exeptions.custom import (
+    ServiceError,
+    TokenError,
+)
 from auth_app.models import (
     RefreshTokenORM,
     UserORM,
@@ -231,3 +234,31 @@ async def test_create_access_token_failure(
         )
 
     assert "User must be verified" in str(verification_error.value)
+
+
+@pytest.mark.asyncio
+async def test_verify_access_token_success(
+    access_token_mock: dict,
+) -> None:
+    """
+    Test successful verification of an access token
+    """
+    token = access_token_mock["access_token"]
+    await TokenService.verify_access_token(
+        access_token=token,
+    )
+
+
+@pytest.mark.asyncio
+async def test_verify_access_token_failure(
+    refresh_tokens_mock: dict,
+) -> None:
+    """
+    Test unsuccessful verification of an access token
+    """
+    token = refresh_tokens_mock["user_refresh_mock"]
+    with pytest.raises(TokenError) as token_error:
+        await TokenService.verify_access_token(
+            access_token=token,
+        )
+    assert "Invalid token type" in str(token_error.value)

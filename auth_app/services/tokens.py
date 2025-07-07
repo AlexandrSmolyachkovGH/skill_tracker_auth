@@ -144,3 +144,13 @@ class TokenService:
             extra_payload=extra_payload,
         )
         return access_token
+
+    @staticmethod
+    async def verify_access_token(
+        access_token: str,
+    ) -> None:
+        """
+        Verify access token validity
+        """
+        token_handler.verify_access(access_token)
+        token_handler.requre_token(access_token)
