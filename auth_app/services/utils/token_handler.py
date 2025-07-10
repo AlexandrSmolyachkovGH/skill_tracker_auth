@@ -38,14 +38,23 @@ class TokenHandler(JWTHandler):
         payload = self.decode_token(token=token)
         return TokenData(token=token, payload=payload)
 
+    def verify_expired_refresh(
+        self,
+        token: str,
+    ) -> TokenData:
+        token, payload = self.requre_expired(token)
+        if payload.get("token_type") != "refresh":
+            raise TokenError("Invalid token type. Refresh token required.")
+        return TokenData(token=token, payload=payload)
+
     def verify_refresh(
         self,
         token: str,
     ) -> TokenData:
-        token, payload = self.requre_token(token)
-        if payload.get("token_type") != "refresh":
-            raise TokenError("Invalid token type. Refresh token required.")
-        return TokenData(token=token, payload=payload)
+        token_data = self.verify_expired_refresh(token=token)
+        token, _ = token_data
+        self.requre_token(token=token)
+        return token_data
 
     def verify_access(
         self,
@@ -75,4 +84,13 @@ def get_current_token_payload(
     ),
 ) -> TokenData:
     token_data = token_handler.verify_refresh(token.credentials)
+    return token_data
+
+
+def get_current_token_payload_for_exchange(
+    token: HTTPAuthorizationCredentials = Security(
+        token_handler.oauth2_scheme
+    ),
+) -> TokenData:
+    token_data = token_handler.verify_expired_refresh(token.credentials)
     return token_data

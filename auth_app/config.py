@@ -74,8 +74,14 @@ class AWSSettings(BaseConfig):
     VERIFICATION_CODE_LENGTH: int
 
 
+class CoreServiceSettings(BaseConfig):
+    CREATE_USER_URI: str
+    SERVICE_SECRET: SecretStr
+
+
 pg_settings = PostgresSettings()
 redis_settings = RedisSettings()
 jwt_settings = JWTSettings()
 pwd_settings = PasswordSettings()
 aws_settings = AWSSettings()
+core_service_settings = CoreServiceSettings()

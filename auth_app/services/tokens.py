@@ -10,6 +10,7 @@ from auth_app.schemes.tokens import (
     CreateRefreshScheme,
     RoleDataScheme,
     UpdateRefreshScheme,
+    VerifyAccessScheme,
 )
 from auth_app.schemes.users import AuthUserScheme
 from auth_app.services.utils.authenticate_user import authenticate_user
@@ -78,8 +79,8 @@ class TokenService:
         )
         token_data = token_handler.generate_refresh(create_data)
         payload = token_data["payload"]
-
         expires_raw = payload["expires"]
+
         if not isinstance(expires_raw, (float, int)):
             raise ValueError("expires must be a number")
 
@@ -147,10 +148,15 @@ class TokenService:
 
     @staticmethod
     async def verify_access_token(
-        access_token: str,
-    ) -> None:
+        auth_data: str,
+    ) -> VerifyAccessScheme:
         """
         Verify access token validity
         """
-        token_handler.verify_access(access_token)
+        access_token = auth_data.split(" ")[1]
+        token_data = token_handler.verify_access(access_token)
         token_handler.requre_token(access_token)
+        return VerifyAccessScheme(
+            token=token_data.token,
+            payload=token_data.payload,
+        )

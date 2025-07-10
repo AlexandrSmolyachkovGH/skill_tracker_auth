@@ -2,6 +2,7 @@ from typing import cast
 from uuid import UUID
 
 from sqlalchemy import (
+    delete,
     select,
     update,
 )
@@ -72,6 +73,20 @@ class UserRepo(BaseRepo):
             update(UserORM)
             .where(UserORM.id == user_id)
             .values(**patch_dict)
+            .returning(UserORM)
+        )
+
+        row = await self.session.execute(stmt)
+        user_orm = row.scalars().first()
+        return user_orm
+
+    async def delete_user(
+        self,
+        user_id: UUID,
+    ) -> UserORM | None:
+        stmt = (
+            delete(UserORM)
+            .where(UserORM.id == user_id)
             .returning(UserORM)
         )
 

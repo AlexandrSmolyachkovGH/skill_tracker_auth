@@ -4,6 +4,7 @@ from fastapi import (
     APIRouter,
     Body,
     Depends,
+    Header,
     HTTPException,
     status,
 )
@@ -24,6 +25,7 @@ from auth_app.services.tokens import (
 from auth_app.services.utils.token_handler import (
     TokenData,
     get_current_token_payload,
+    get_current_token_payload_for_exchange,
 )
 
 token_router = APIRouter(
@@ -77,7 +79,7 @@ async def create_refresh(
     status_code=status.HTTP_201_CREATED,
 )
 async def exchange_refresh(
-    token_data: TokenData = Depends(get_current_token_payload),
+    token_data: TokenData = Depends(get_current_token_payload_for_exchange),
     token_service: TokenService = Depends(get_token_service),
 ) -> GetRefreshScheme:
     token = await token_service.exchange_refresh_token(
@@ -102,17 +104,22 @@ async def create_access(
     return GetAccessScheme(message=token)
 
 
-@token_router.post(
+@token_router.get(
     path='/access/verify/',
     response_model=VerifyAccessScheme,
     description='Verify the access token',
     status_code=status.HTTP_200_OK,
 )
 async def verify_access(
-    access_token: Annotated[str, Body()],
+    auth_data: Annotated[str, Header(alias="Authorization")],
     token_service: TokenService = Depends(get_token_service),
 ) -> VerifyAccessScheme:
-    await token_service.verify_access_token(
-        access_token=access_token,
+    if not auth_data.startswith("Bearer"):
+        raise HTTPException(
+            detail="Invalid Authorization header",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+    token_data = await token_service.verify_access_token(
+        auth_data=auth_data,
     )
-    return VerifyAccessScheme()
+    return token_data

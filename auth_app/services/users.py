@@ -1,9 +1,14 @@
+import random
 from uuid import UUID
 
+import httpx
 from aiobotocore.client import AioBaseClient
 from redis.asyncio.client import Redis
 
-from auth_app.config import jwt_settings
+from auth_app.config import (
+    core_service_settings,
+    jwt_settings,
+)
 from auth_app.exeptions.custom import (
     ServiceError,
     UserActivityError,
@@ -82,7 +87,42 @@ class UserService:
             ):
                 raise ServiceError("Invalid role or permission code")
         record = await self.__user_repo.create_user(user_data)
+        try:
+            await self.create_user_record_in_core(
+                record=record,
+            )
+        except ServiceError as e:
+            await self.__user_repo.delete_user(
+                user_id=record.id,
+            )
+            raise ServiceError(
+                f"Failed user creation on the core side: {e}"
+            ) from e
         return record
+
+    async def create_user_record_in_core(
+        self,
+        record: UserORM,
+    ) -> None:
+        headers = {
+            "Service-Secret": f"{core_service_settings.SERVICE_SECRET.get_secret_value()}"
+        }
+        user_name = self.create_unique_username(record.email)
+        user_data = {
+            "id": str(record.id),
+            "name": user_name,
+            "email": record.email,
+        }
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(
+                core_service_settings.CREATE_USER_URI,
+                headers=headers,
+                json=user_data,
+            )
+        if response.status_code != 201:
+            raise ServiceError(
+                f"Core service rejected user: {response.text}"
+            )
 
     async def create_init_code_message(
         self,
@@ -165,3 +205,11 @@ class UserService:
             "message": data.get("message"),
         }
         return response
+
+    def create_unique_username(
+        self,
+        email: str,
+    ) -> str:
+        username = email.split("@")[0]
+        username = username + "_" + str(random.randint(100000, 999999))
+        return username

@@ -137,12 +137,8 @@ class GetAccessScheme(BaseModel):
 
 
 class VerifyAccessScheme(BaseModel):
-    message: dict[str, str] = Field(
-        description='Verification info',
-        default={
-            'message': 'The access token has been verified',
-        },
-    )
+    token: str
+    payload: dict
 
     class Config:
         from_attributes = True

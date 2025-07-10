@@ -35,7 +35,8 @@ dependencies = [
     "bcrypt (<4.1.0)",
     "coverage (>=7.9.1,<8.0.0)",
     "pytest-asyncio (>=1.0.0,<2.0.0)",
-    "pytest-mock (>=3.14.1,<4.0.0)"
+    "pytest-mock (>=3.14.1,<4.0.0)",
+    "httpx (>=0.28.1,<0.29.0)"
 ]
 
 [tool.poetry]
