@@ -2,6 +2,7 @@ from typing import cast
 from uuid import UUID
 
 from sqlalchemy import (
+    delete,
     select,
     update,
 )
@@ -72,6 +73,67 @@ class UserRepo(BaseRepo):
             update(UserORM)
             .where(UserORM.id == user_id)
             .values(**patch_dict)
+            .returning(UserORM)
+        )
+
+        row = await self.session.execute(stmt)
+        user_orm = row.scalars().first()
+        return user_orm
+
+    async def delete_user(
+        self,
+        user_id: UUID,
+    ) -> UserORM | None:
+        stmt = (
+            delete(UserORM)
+            .where(UserORM.id == user_id)
+            .returning(UserORM)
+        )
+        print(f"stmt: {stmt}")
+
+        row = await self.session.execute(stmt)
+        print(f"row: {row}")
+        user_orm = row.scalars().first()
+        return user_orm
+
+    async def soft_delete_user(
+        self,
+        user_id: UUID,
+    ) -> UserORM:
+        user = await self.get_user(user_id=user_id)
+        if user is None:
+            raise ValueError(f"User with id {user_id} not found")
+        data = {
+            "email": "deleted_" + user.email,
+            "is_active": False,
+        }
+        stmt = (
+            update(UserORM)
+            .where(UserORM.id == user_id)
+            .values(**data)
+            .returning(UserORM)
+        )
+
+        row = await self.session.execute(stmt)
+        user_orm = row.scalars().first()
+        return user_orm
+
+    async def soft_delete_user_rollback(
+        self,
+        user_id: UUID,
+    ) -> UserORM:
+        user = await self.get_user(user_id=user_id)
+        if user is None:
+            raise ValueError(f"User with id {user_id} not found")
+        email = str(user.email).replace("deleted_", "")
+        data = {
+            "email": email,
+            "is_active": True,
+        }
+        stmt = (
+            update(UserORM)
+            .where(UserORM.id == user_id)
+            .values(**data)
             .returning(UserORM)
         )
 

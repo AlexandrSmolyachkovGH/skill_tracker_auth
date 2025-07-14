@@ -127,7 +127,7 @@ class PatchUserScheme(BaseModel):
         from_attributes = True
 
 
-class DeleteUserScheme(AuthUserScheme):
+class DeleteUserScheme(BaseModel):
     id: Optional[UUID] = Field(
         description='Unique user identifier ',
         example='123e4567-e89b-12d3-a456-426614174000',

@@ -1,8 +1,5 @@
 from datetime import datetime
 
-from aiobotocore.client import AioBaseClient
-from redis.asyncio.client import Redis
-
 from auth_app.config import jwt_settings
 from auth_app.exeptions.custom import ServiceError
 from auth_app.models import RefreshTokenORM
@@ -13,6 +10,7 @@ from auth_app.schemes.tokens import (
     CreateRefreshScheme,
     RoleDataScheme,
     UpdateRefreshScheme,
+    VerifyAccessScheme,
 )
 from auth_app.schemes.users import AuthUserScheme
 from auth_app.services.utils.authenticate_user import authenticate_user
@@ -27,13 +25,9 @@ class TokenService:
         self,
         user_repo: UserRepo,
         token_repo: TokenRepo,
-        redis: Redis,
-        ses: AioBaseClient,
     ) -> None:
         self.__user_repo = user_repo
         self.__token_repo = token_repo
-        self.__redis = redis
-        self.__ses = ses
 
     @property
     def user_repo(self) -> UserRepo:
@@ -53,12 +47,12 @@ class TokenService:
             user_repo=self.__user_repo,
         )
         if not user:
-            raise ServiceError('User not found or Invalid user data')
+            raise ServiceError("User not found or Invalid user data")
         result = await self.__token_repo.get_refresh(
             user_id=user.id,
         )
         if not result:
-            raise ServiceError('Token not found')
+            raise ServiceError("Token not found")
         return result
 
     async def create_refresh_token(
@@ -85,8 +79,8 @@ class TokenService:
         )
         token_data = token_handler.generate_refresh(create_data)
         payload = token_data["payload"]
-
         expires_raw = payload["expires"]
+
         if not isinstance(expires_raw, (float, int)):
             raise ValueError("expires must be a number")
 
@@ -151,3 +145,18 @@ class TokenService:
             extra_payload=extra_payload,
         )
         return access_token
+
+    @staticmethod
+    async def verify_access_token(
+        auth_data: str,
+    ) -> VerifyAccessScheme:
+        """
+        Verify access token validity
+        """
+        access_token = auth_data.split(" ")[1]
+        token_data = token_handler.verify_access(access_token)
+        token_handler.requre_token(access_token)
+        return VerifyAccessScheme(
+            token=token_data.token,
+            payload=token_data.payload,
+        )

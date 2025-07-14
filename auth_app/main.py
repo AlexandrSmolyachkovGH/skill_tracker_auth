@@ -1,5 +1,6 @@
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from auth_app.exeptions.custom import (
     ServiceError,
@@ -16,6 +17,7 @@ from auth_app.exeptions.handlers import (
     user_verification_exception_handler,
 )
 from auth_app.messages.common import msg_creator
+from auth_app.middleware.cors import cors_settings
 from auth_app.middleware.db_session import DBSessionMiddleware
 from auth_app.routers.tokens import token_router
 from auth_app.routers.users import user_router
@@ -33,6 +35,13 @@ app.add_exception_handler(ServiceError, service_error_handler)
 app.add_exception_handler(TransactionError, transaction_error_handler)
 
 app.add_middleware(DBSessionMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_settings.allow_origins,
+    allow_credentials=cors_settings.allow_credentials,
+    allow_methods=cors_settings.allow_methods,
+    allow_headers=cors_settings.allow_headers
+)
 
 
 @app.on_event("startup")
@@ -54,4 +63,8 @@ async def root() -> dict:
 
 
 if __name__ == '__main__':
-    uvicorn.run('auth_app.main:app')
+    uvicorn.run(
+        'auth_app.main:app',
+        host="localhost",
+        port=8001,
+    )

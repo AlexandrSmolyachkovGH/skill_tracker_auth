@@ -134,3 +134,11 @@ class GetAccessScheme(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class VerifyAccessScheme(BaseModel):
+    token: str
+    payload: dict
+
+    class Config:
+        from_attributes = True

@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import (
     APIRouter,
@@ -13,6 +14,7 @@ from auth_app.dependencies import get_user_service
 from auth_app.schemes.users import (
     CreateResponseScheme,
     CreateUserExtendedScheme,
+    DeleteUserScheme,
     GetUserScheme,
     MessageResponseScheme,
     UserFilterScheme,
@@ -148,3 +150,29 @@ async def get_users(
             detail='Relevant users not found',
         )
     return [GetUserScheme.model_validate(user) for user in users]
+
+
+@user_router.delete(
+    path='/{user_id}',
+    response_model=GetUserScheme,
+    description="Delete the user",
+    status_code=status.HTTP_200_OK,
+)
+async def delete_user(
+    user_id: UUID,
+    token_data: TokenData = Depends(get_current_token_payload),
+    user_service: UserService = Depends(get_user_service),
+) -> GetUserScheme:
+    delete_model = DeleteUserScheme(
+        id=user_id,
+    )
+    deleted_user = await user_service.delete_user_record(
+        token_data=token_data,
+        delete_model=delete_model,
+    )
+    if not deleted_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='User not found or already deleted',
+        )
+    return GetUserScheme.model_validate(deleted_user)
