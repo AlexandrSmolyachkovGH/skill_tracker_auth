@@ -21,6 +21,7 @@ from auth_app.repositories.users import UserRepo
 from auth_app.schemes.users import (
     CreateResponseScheme,
     CreateUserExtendedScheme,
+    DeleteUserScheme,
     GetUserScheme,
     MessageResponseScheme,
     PatchUserScheme,
@@ -28,6 +29,7 @@ from auth_app.schemes.users import (
 )
 from auth_app.services.ses.ses_handler import ses_handler
 from auth_app.services.utils.pwd_hashing import hash_password
+from auth_app.services.utils.token_handler import TokenData
 
 
 class UserService:
@@ -213,3 +215,48 @@ class UserService:
         username = email.split("@")[0]
         username = username + "_" + str(random.randint(100000, 999999))
         return username
+
+    async def delete_user_record(
+        self,
+        token_data: TokenData,
+        delete_model: DeleteUserScheme,
+    ) -> UserORM:
+        role = token_data.payload["role"]
+        user_id = token_data.payload["user_id"]
+        if delete_model.id is None:
+            raise ServiceError("User ID must not be None")
+        if role in ["USER"] and user_id != str(delete_model.id):
+            raise ServiceError("Have no permissions to delete the record")
+        record = await self.__user_repo.soft_delete_user(
+            user_id=delete_model.id,
+        )
+        try:
+            await self.delete_user_record_in_core(
+                user_id=delete_model.id,
+            )
+        except ServiceError as e:
+            await self.__user_repo.soft_delete_user_rollback(
+                user_id=record.id,
+            )
+            raise ServiceError(
+                f"Delete failure on the core side: {e}"
+            ) from e
+        return record
+
+    async def delete_user_record_in_core(
+        self,
+        user_id: UUID,
+    ) -> None:
+        headers = {
+            "Service-Secret": f"{core_service_settings.SERVICE_SECRET.get_secret_value()}"
+        }
+        uri = core_service_settings.DELETE_USER_URI + str(user_id) + "/"
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.delete(
+                uri,
+                headers=headers,
+            )
+        if response.status_code != 200:
+            raise ServiceError(
+                f"Core service rejected delete operation: {response.text}"
+            )

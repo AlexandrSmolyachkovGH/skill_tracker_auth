@@ -76,6 +76,7 @@ class AWSSettings(BaseConfig):
 
 class CoreServiceSettings(BaseConfig):
     CREATE_USER_URI: str
+    DELETE_USER_URI: str
     SERVICE_SECRET: SecretStr
 
 
